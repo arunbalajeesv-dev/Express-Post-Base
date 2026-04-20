@@ -139,42 +139,63 @@ components:
           type: integer
         name:
           type: string
-        email:
+        mobile:
           type: string
-          format: email
-        createdAt:
+        role:
           type: string
-          format: date-time
-        updatedAt:
+        userId:
           type: string
-          format: date-time
+        password:
+          type: string
       required:
         - id
         - name
-        - email
-        - createdAt
-        - updatedAt
+        - mobile
+        - role
+        - userId
+        - password
     UserInput:
       type: object
       properties:
         name:
           type: string
           minLength: 1
-        email:
+        mobile:
           type: string
-          format: email
+          minLength: 1
+        role:
+          type: string
+          minLength: 1
+        userId:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
       required:
         - name
-        - email
+        - mobile
+        - role
+        - userId
+        - password
     UserUpdateInput:
       type: object
       properties:
         name:
           type: string
           minLength: 1
-        email:
+        mobile:
           type: string
-          format: email
+          minLength: 1
+        role:
+          type: string
+          minLength: 1
+        userId:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
       minProperties: 1
     UserResponse:
       type: object

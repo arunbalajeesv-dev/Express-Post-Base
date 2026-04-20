@@ -7,7 +7,7 @@ import {
 } from "@workspace/db";
 
 export function listUsers() {
-  return db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
+  return db.select().from(usersTable).orderBy(desc(usersTable.id));
 }
 
 export async function getUserById(id: number) {
@@ -23,7 +23,7 @@ export async function createUser(data: InsertUser) {
 export async function updateUser(id: number, data: UpdateUser) {
   const [user] = await db
     .update(usersTable)
-    .set({ ...data, updatedAt: new Date() })
+    .set(data)
     .where(eq(usersTable.id, id))
     .returning();
 

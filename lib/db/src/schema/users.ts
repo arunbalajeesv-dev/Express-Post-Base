@@ -1,23 +1,25 @@
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  mobile: text("mobile").notNull(),
+  role: text("role").notNull(),
+  userId: text("user_id").notNull(),
+  password: text("password").notNull(),
 });
 
 export const selectUserSchema = createSelectSchema(usersTable);
 export const insertUserSchema = createInsertSchema(usersTable, {
   name: z.string().min(1, "Name is required"),
-  email: z.email("A valid email is required"),
+  mobile: z.string().min(1, "Mobile is required"),
+  role: z.string().min(1, "Role is required"),
+  userId: z.string().min(1, "User ID is required"),
+  password: z.string().min(1, "Password is required"),
 }).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
 });
 export const updateUserSchema = insertUserSchema.partial().refine(
   (data) => Object.keys(data).length > 0,

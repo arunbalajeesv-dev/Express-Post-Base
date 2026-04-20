@@ -9,5 +9,12 @@
 export interface UserInput {
   /** @minLength 1 */
   name: string;
-  email: string;
+  /** @minLength 1 */
+  mobile: string;
+  /** @minLength 1 */
+  role: string;
+  /** @minLength 1 */
+  userId: string;
+  /** @minLength 1 */
+  password: string;
 }

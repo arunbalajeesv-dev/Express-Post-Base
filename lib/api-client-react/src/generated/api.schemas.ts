@@ -12,21 +12,36 @@ export interface HealthStatus {
 export interface User {
   id: number;
   name: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
+  mobile: string;
+  role: string;
+  userId: string;
+  password: string;
 }
 
 export interface UserInput {
   /** @minLength 1 */
   name: string;
-  email: string;
+  /** @minLength 1 */
+  mobile: string;
+  /** @minLength 1 */
+  role: string;
+  /** @minLength 1 */
+  userId: string;
+  /** @minLength 1 */
+  password: string;
 }
 
 export interface UserUpdateInput {
   /** @minLength 1 */
   name?: string;
-  email?: string;
+  /** @minLength 1 */
+  mobile?: string;
+  /** @minLength 1 */
+  role?: string;
+  /** @minLength 1 */
+  userId?: string;
+  /** @minLength 1 */
+  password?: string;
 }
 
 export interface UserResponse {

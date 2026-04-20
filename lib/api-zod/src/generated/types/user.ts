@@ -9,7 +9,8 @@
 export interface User {
   id: number;
   name: string;
-  email: string;
-  createdAt: Date;
-  updatedAt: Date;
+  mobile: string;
+  role: string;
+  userId: string;
+  password: string;
 }

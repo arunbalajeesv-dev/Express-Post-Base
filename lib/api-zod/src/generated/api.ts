@@ -23,9 +23,10 @@ export const ListUsersResponse = zod.object({
     zod.object({
       id: zod.number(),
       name: zod.string(),
-      email: zod.string().email(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      mobile: zod.string(),
+      role: zod.string(),
+      userId: zod.string(),
+      password: zod.string(),
     }),
   ),
 });
@@ -36,7 +37,10 @@ export const ListUsersResponse = zod.object({
 
 export const CreateUserBody = zod.object({
   name: zod.string().min(1),
-  email: zod.string().email(),
+  mobile: zod.string().min(1),
+  role: zod.string().min(1),
+  userId: zod.string().min(1),
+  password: zod.string().min(1),
 });
 
 /**
@@ -51,9 +55,10 @@ export const GetUserResponse = zod.object({
   data: zod.object({
     id: zod.number(),
     name: zod.string(),
-    email: zod.string().email(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    mobile: zod.string(),
+    role: zod.string(),
+    userId: zod.string(),
+    password: zod.string(),
   }),
 });
 
@@ -67,16 +72,20 @@ export const UpdateUserParams = zod.object({
 
 export const UpdateUserBody = zod.object({
   name: zod.string().min(1).optional(),
-  email: zod.string().email().optional(),
+  mobile: zod.string().min(1).optional(),
+  role: zod.string().min(1).optional(),
+  userId: zod.string().min(1).optional(),
+  password: zod.string().min(1).optional(),
 });
 
 export const UpdateUserResponse = zod.object({
   data: zod.object({
     id: zod.number(),
     name: zod.string(),
-    email: zod.string().email(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    mobile: zod.string(),
+    role: zod.string(),
+    userId: zod.string(),
+    password: zod.string(),
   }),
 });
 
@@ -92,8 +101,9 @@ export const DeleteUserResponse = zod.object({
   data: zod.object({
     id: zod.number(),
     name: zod.string(),
-    email: zod.string().email(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    mobile: zod.string(),
+    role: zod.string(),
+    userId: zod.string(),
+    password: zod.string(),
   }),
 });
