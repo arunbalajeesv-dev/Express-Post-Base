@@ -8,3 +8,31 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserInput {
+  /** @minLength 1 */
+  name: string;
+  email: string;
+}
+
+export interface UserUpdateInput {
+  /** @minLength 1 */
+  name?: string;
+  email?: string;
+}
+
+export interface UserResponse {
+  data: User;
+}
+
+export interface UserListResponse {
+  data: User[];
+}

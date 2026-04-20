@@ -24,4 +24,20 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## API Server Structure
+
+- `artifacts/api-server/src/app.ts` — Express app setup, JSON parsing, CORS, logging, routes, and error handling
+- `artifacts/api-server/src/routes` — REST route definitions
+- `artifacts/api-server/src/controllers` — request handlers
+- `artifacts/api-server/src/models` — PostgreSQL data access
+- `artifacts/api-server/src/middlewares` — shared Express middleware
+- `lib/db/src/schema` — Drizzle PostgreSQL table schemas
+
+## Run Instructions
+
+1. Ensure PostgreSQL is provisioned so `DATABASE_URL` is available.
+2. Push the database schema with `pnpm --filter @workspace/db run push`.
+3. Start the API server with `pnpm --filter @workspace/api-server run dev`.
+4. Use `/api/healthz` for health checks and `/api/users` for the sample REST resource.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

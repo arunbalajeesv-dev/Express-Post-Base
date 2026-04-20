@@ -14,3 +14,86 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary List users
+ */
+export const ListUsersResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string().email(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create user
+ */
+
+export const CreateUserBody = zod.object({
+  name: zod.string().min(1),
+  email: zod.string().email(),
+});
+
+/**
+ * @summary Get user by id
+ */
+
+export const GetUserParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const GetUserResponse = zod.object({
+  data: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    email: zod.string().email(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update user
+ */
+
+export const UpdateUserParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const UpdateUserBody = zod.object({
+  name: zod.string().min(1).optional(),
+  email: zod.string().email().optional(),
+});
+
+export const UpdateUserResponse = zod.object({
+  data: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    email: zod.string().email(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete user
+ */
+
+export const DeleteUserParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const DeleteUserResponse = zod.object({
+  data: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    email: zod.string().email(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
