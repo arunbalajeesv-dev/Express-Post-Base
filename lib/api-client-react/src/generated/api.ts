@@ -17,6 +17,11 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  BrandInput,
+  BrandListResponse,
+  BrandResponse,
+  CreateVisitInput,
+  CreateVisitResponse,
   HealthStatus,
   UserInput,
   UserListResponse,
@@ -508,4 +513,253 @@ export const useDeleteUser = <
   TContext
 > => {
   return useMutation(getDeleteUserMutationOptions(options));
+};
+
+/**
+ * Returns all brands for frontend dropdowns.
+ * @summary Get all brands
+ */
+export const getListBrandsUrl = () => {
+  return `/api/brands`;
+};
+
+export const listBrands = async (
+  options?: RequestInit,
+): Promise<BrandListResponse> => {
+  return customFetch<BrandListResponse>(getListBrandsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListBrandsQueryKey = () => {
+  return [`/api/brands`] as const;
+};
+
+export const getListBrandsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBrands>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBrands>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListBrandsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listBrands>>> = ({
+    signal,
+  }) => listBrands({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBrands>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBrandsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBrands>>
+>;
+export type ListBrandsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all brands
+ */
+
+export function useListBrands<
+  TData = Awaited<ReturnType<typeof listBrands>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBrands>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBrandsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Manager-only endpoint. Send x-user-role: manager.
+ * @summary Add a new brand
+ */
+export const getCreateBrandUrl = () => {
+  return `/api/brands`;
+};
+
+export const createBrand = async (
+  brandInput: BrandInput,
+  options?: RequestInit,
+): Promise<BrandResponse> => {
+  return customFetch<BrandResponse>(getCreateBrandUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(brandInput),
+  });
+};
+
+export const getCreateBrandMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBrand>>,
+    TError,
+    { data: BodyType<BrandInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBrand>>,
+  TError,
+  { data: BodyType<BrandInput> },
+  TContext
+> => {
+  const mutationKey = ["createBrand"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBrand>>,
+    { data: BodyType<BrandInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createBrand(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBrandMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBrand>>
+>;
+export type CreateBrandMutationBody = BodyType<BrandInput>;
+export type CreateBrandMutationError = ErrorType<void>;
+
+/**
+ * @summary Add a new brand
+ */
+export const useCreateBrand = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBrand>>,
+    TError,
+    { data: BodyType<BrandInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBrand>>,
+  TError,
+  { data: BodyType<BrandInput> },
+  TContext
+> => {
+  return useMutation(getCreateBrandMutationOptions(options));
+};
+
+/**
+ * @summary Add visit with brands used
+ */
+export const getCreateVisitUrl = () => {
+  return `/api/visits`;
+};
+
+export const createVisit = async (
+  createVisitInput: CreateVisitInput,
+  options?: RequestInit,
+): Promise<CreateVisitResponse> => {
+  return customFetch<CreateVisitResponse>(getCreateVisitUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createVisitInput),
+  });
+};
+
+export const getCreateVisitMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVisit>>,
+    TError,
+    { data: BodyType<CreateVisitInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createVisit>>,
+  TError,
+  { data: BodyType<CreateVisitInput> },
+  TContext
+> => {
+  const mutationKey = ["createVisit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createVisit>>,
+    { data: BodyType<CreateVisitInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createVisit(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateVisitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createVisit>>
+>;
+export type CreateVisitMutationBody = BodyType<CreateVisitInput>;
+export type CreateVisitMutationError = ErrorType<void>;
+
+/**
+ * @summary Add visit with brands used
+ */
+export const useCreateVisit = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVisit>>,
+    TError,
+    { data: BodyType<CreateVisitInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createVisit>>,
+  TError,
+  { data: BodyType<CreateVisitInput> },
+  TContext
+> => {
+  return useMutation(getCreateVisitMutationOptions(options));
 };

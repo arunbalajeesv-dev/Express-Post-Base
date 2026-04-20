@@ -33,6 +33,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `artifacts/api-server/src/middlewares` — shared Express middleware
 - `lib/db/src/schema` — Drizzle PostgreSQL table schemas
 - `lib/db/sql/create_tables.sql` — SQL statements to create Users, Customers, Visits, and Followups tables
+- Brands management uses `brands` and `visit_brands` tables, with API routes at `/api/brands` and visit creation at `/api/visits`.
 
 ## Run Instructions
 

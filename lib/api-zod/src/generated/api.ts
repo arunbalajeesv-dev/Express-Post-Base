@@ -107,3 +107,50 @@ export const DeleteUserResponse = zod.object({
     password: zod.string(),
   }),
 });
+
+/**
+ * Returns all brands for frontend dropdowns.
+ * @summary Get all brands
+ */
+export const ListBrandsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * Manager-only endpoint. Send x-user-role: manager.
+ * @summary Add a new brand
+ */
+
+export const CreateBrandBody = zod.object({
+  name: zod.string().min(1),
+});
+
+/**
+ * @summary Add visit with brands used
+ */
+
+export const CreateVisitBody = zod.object({
+  user_id: zod.number().min(1),
+  customer_id: zod.number().min(1),
+  area: zod.string().optional(),
+  site_stage: zod.string().optional(),
+  feedback: zod.string().optional(),
+  visit_date: zod.coerce.date(),
+  visit_time: zod.string(),
+  notes: zod.string().optional(),
+  image_url: zod.string().optional(),
+  brands_used: zod
+    .array(
+      zod.object({
+        brand_id: zod.number().min(1).optional(),
+        custom_brand_name: zod.string().min(1).optional(),
+      }),
+    )
+    .min(1),
+});

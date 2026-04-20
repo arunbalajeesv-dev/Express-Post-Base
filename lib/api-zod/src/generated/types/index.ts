@@ -6,9 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./brand";
+export * from "./brandInput";
+export * from "./brandListResponse";
+export * from "./brandResponse";
+export * from "./brandUsedInput";
+export * from "./createVisitInput";
+export * from "./createVisitResponse";
+export * from "./createVisitResponseData";
 export * from "./healthStatus";
 export * from "./user";
 export * from "./userInput";
 export * from "./userListResponse";
 export * from "./userResponse";
 export * from "./userUpdateInput";
+export * from "./visit";
+export * from "./visitBrand";

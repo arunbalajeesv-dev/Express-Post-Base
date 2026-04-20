@@ -51,3 +51,76 @@ export interface UserResponse {
 export interface UserListResponse {
   data: User[];
 }
+
+export interface Brand {
+  id: number;
+  name: string;
+  createdAt: string;
+}
+
+export interface BrandInput {
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface BrandResponse {
+  message: string;
+  data: Brand;
+}
+
+export interface BrandListResponse {
+  data: Brand[];
+}
+
+export interface BrandUsedInput {
+  /** @minimum 1 */
+  brand_id?: number;
+  /** @minLength 1 */
+  custom_brand_name?: string;
+}
+
+export interface CreateVisitInput {
+  /** @minimum 1 */
+  user_id: number;
+  /** @minimum 1 */
+  customer_id: number;
+  area?: string;
+  site_stage?: string;
+  feedback?: string;
+  visit_date: string;
+  visit_time: string;
+  notes?: string;
+  image_url?: string;
+  /** @minItems 1 */
+  brands_used: BrandUsedInput[];
+}
+
+export interface Visit {
+  id: number;
+  userId: number;
+  customerId: number;
+  area?: string;
+  siteStage?: string;
+  feedback?: string;
+  visitDate: string;
+  visitTime: string;
+  notes?: string;
+  imageUrl?: string;
+}
+
+export interface VisitBrand {
+  id: number;
+  visitId: number;
+  brandId?: number;
+  customBrandName?: string;
+}
+
+export type CreateVisitResponseData = {
+  visit: Visit;
+  brandsUsed: VisitBrand[];
+};
+
+export interface CreateVisitResponse {
+  message: string;
+  data: CreateVisitResponseData;
+}
