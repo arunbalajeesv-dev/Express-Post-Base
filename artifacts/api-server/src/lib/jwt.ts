@@ -18,7 +18,7 @@ function getSecret() {
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, getSecret(), { expiresIn: "7d" });
+  return jwt.sign(payload, getSecret(), { expiresIn: "15d" });
 }
 
 export function verifyToken(token: string): JwtPayload {
