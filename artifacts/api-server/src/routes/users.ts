@@ -1,15 +1,13 @@
 import { Router, type IRouter } from "express";
-import {
-  createUser,
-  deleteUser,
-  getUser,
-  listUsers,
-  updateUser,
-} from "../controllers/userController";
+import { deleteUser, getUser, listUsers, updateUser } from "../controllers/userController";
+import { authenticate } from "../middlewares/authenticate";
+import { requireManager } from "../middlewares/requireManager";
 
 const router: IRouter = Router();
 
-router.route("/users").get(listUsers).post(createUser);
-router.route("/users/:id").get(getUser).put(updateUser).delete(deleteUser);
+router.use("/users", authenticate);
+
+router.route("/users").get(listUsers);
+router.route("/users/:id").get(getUser).put(requireManager, updateUser).delete(requireManager, deleteUser);
 
 export default router;

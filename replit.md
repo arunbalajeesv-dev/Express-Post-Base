@@ -34,6 +34,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `lib/db/src/schema` — Drizzle PostgreSQL table schemas
 - `lib/db/sql/create_tables.sql` — SQL statements to create Users, Customers, Visits, and Followups tables
 - Brands management uses `brands` and `visit_brands` tables, with API routes at `/api/brands` and visit creation at `/api/visits`.
+- Authentication uses JWT (`JWT_SECRET` env var). `POST /api/login` is public. All other routes require `Authorization: Bearer <token>`. `POST /api/create-user` and manager mutations require `role: manager` in the JWT payload.
+- Passwords are hashed with bcryptjs (10 rounds) on creation.
 
 ## Run Instructions
 

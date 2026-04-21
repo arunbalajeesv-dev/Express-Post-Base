@@ -2,8 +2,8 @@ import type { RequestHandler } from "express";
 import { insertUserSchema, updateUserSchema } from "@workspace/db";
 import * as userModel from "../models/userModel";
 
-function parseId(value: string | undefined) {
-  const id = Number(value);
+function parseId(value: string | string[] | undefined) {
+  const id = Number(Array.isArray(value) ? value[0] : value);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 

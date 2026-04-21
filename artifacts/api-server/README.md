@@ -27,17 +27,52 @@ pnpm --filter @workspace/api-server run dev
 
 ## API endpoints
 
+### Public
 - `GET /api/healthz`
+- `POST /api/login` — returns JWT token
+
+### Authenticated (requires `Authorization: Bearer <token>`)
 - `GET /api/users`
-- `POST /api/users`
 - `GET /api/users/:id`
+- `GET /api/brands`
+- `POST /api/visits`
+
+### Manager-only (authenticated + `role: manager`)
+- `POST /api/create-user`
 - `PUT /api/users/:id`
 - `DELETE /api/users/:id`
+- `POST /api/brands`
 
-Example request:
+## Authentication
+
+All protected routes require a JWT in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
+### Login
 
 ```bash
-curl -X POST http://localhost:80/api/users \
+curl -X POST http://localhost:80/api/login \
   -H "Content-Type: application/json" \
-  -d '{"name":"Example User","email":"example-user@example.com"}'
+  -d '{"user_id":"admin01","password":"manager123"}'
+```
+
+Response:
+```json
+{
+  "message": "Login successful",
+  "token": "<jwt>",
+  "user": { "id": 1, "name": "Admin Manager", "userId": "admin01", "role": "manager", "mobile": "..." }
+}
+```
+
+### Create User (manager only)
+
+```bash
+curl -X POST http://localhost:80/api/create-user \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"name":"Sales Agent","mobile":"8888888888","role":"sales","userId":"agent01","password":"agent123"}'
 ```
