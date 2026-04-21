@@ -14,12 +14,12 @@ export type AddVisitData = {
   visitDate: string;
   visitTime: string;
   notes?: string;
-  imageUrl?: string;
+  imageUrl: string;
 };
 
 export async function createVisitWithBrands(
   visitData: AddVisitData,
-  brandLinks: Omit<InsertVisitBrand, "visitId">[],
+  brandLinks: Omit<InsertVisitBrand, "visitId">[] = [],
 ) {
   return db.transaction(async (tx) => {
     const [visit] = await tx
@@ -31,16 +31,16 @@ export async function createVisitWithBrands(
       throw new Error("Unable to create visit");
     }
 
-    const links = brandLinks.map((brandLink) => ({
-      ...brandLink,
-      visitId: visit.id,
-    }));
+    let visitBrands: typeof visitBrandsTable.$inferSelect[] = [];
 
-    const visitBrands = await tx.insert(visitBrandsTable).values(links).returning();
+    if (brandLinks.length > 0) {
+      const links = brandLinks.map((brandLink) => ({
+        ...brandLink,
+        visitId: visit.id,
+      }));
+      visitBrands = await tx.insert(visitBrandsTable).values(links).returning();
+    }
 
-    return {
-      visit,
-      brandsUsed: visitBrands,
-    };
+    return { visit, brandsUsed: visitBrands };
   });
 }
