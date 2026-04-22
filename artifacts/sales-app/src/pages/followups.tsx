@@ -22,6 +22,7 @@ import {
   TrendingUp,
   RotateCcw,
   IndianRupee,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,6 +32,7 @@ type Followup = {
   status: string;
   notes: string | null;
   saleAmount: string | null;
+  invoiceNumber: string | null;
   convertedAt: string | null;
   customer: { id: number; name: string; mobile: string; companyName: string | null } | null;
   visit: { id: number; area: string; siteStage: string; feedback: string } | null;
@@ -61,17 +63,19 @@ function useUpdateFollowup() {
       id,
       status,
       saleAmount,
+      invoiceNumber,
       followupDate,
     }: {
       id: number;
       status: string;
       saleAmount?: string;
+      invoiceNumber?: string;
       followupDate?: string;
     }) => {
       const res = await fetch(`/api/followups/${id}`, {
         method: "PUT",
         headers: apiHeaders(),
-        body: JSON.stringify({ status, sale_amount: saleAmount, followup_date: followupDate }),
+        body: JSON.stringify({ status, sale_amount: saleAmount, invoice_number: invoiceNumber, followup_date: followupDate }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -144,13 +148,22 @@ function FollowupCard({
         )}
 
         {isConverted && f.saleAmount && (
-          <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
-            <IndianRupee className="h-4 w-4" />
-            {parseFloat(f.saleAmount).toLocaleString("en-IN")}
-            {f.convertedAt && (
-              <span className="text-xs font-normal text-muted-foreground ml-1">
-                · {format(new Date(f.convertedAt), "MMM d, yyyy")}
-              </span>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+              <IndianRupee className="h-4 w-4" />
+              {parseFloat(f.saleAmount).toLocaleString("en-IN")}
+              {f.convertedAt && (
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  · {format(new Date(f.convertedAt), "MMM d, yyyy")}
+                </span>
+              )}
+            </div>
+            {f.invoiceNumber && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg">
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span className="font-medium">Invoice:</span>
+                <span className="font-mono">{f.invoiceNumber}</span>
+              </div>
             )}
           </div>
         )}
@@ -205,6 +218,7 @@ export default function Followups() {
 
   const [convertDialog, setConvertDialog] = useState<ConvertDialogState>({ open: false });
   const [saleInput, setSaleInput] = useState("");
+  const [invoiceInput, setInvoiceInput] = useState("");
   const [rescheduleDialog, setRescheduleDialog] = useState<RescheduleDialogState>({ open: false });
   const [rescheduleDate, setRescheduleDate] = useState("");
 
@@ -227,11 +241,21 @@ export default function Followups() {
       toast({ variant: "destructive", title: "Invalid amount", description: "Enter a valid positive sale amount" });
       return;
     }
+    if (!invoiceInput.trim()) {
+      toast({ variant: "destructive", title: "Invoice required", description: "Enter an invoice number to proceed" });
+      return;
+    }
     try {
-      await update.mutateAsync({ id: convertDialog.followupId, status: "Converted", saleAmount: saleInput.trim() });
-      toast({ title: "Marked as Converted", description: `Sale of ₹${parseFloat(saleInput).toLocaleString("en-IN")} recorded` });
+      await update.mutateAsync({
+        id: convertDialog.followupId,
+        status: "Converted",
+        saleAmount: saleInput.trim(),
+        invoiceNumber: invoiceInput.trim(),
+      });
+      toast({ title: "Marked as Converted", description: `Sale of ₹${parseFloat(saleInput).toLocaleString("en-IN")} · Invoice ${invoiceInput.trim()}` });
       setConvertDialog({ open: false });
       setSaleInput("");
+      setInvoiceInput("");
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message });
     }
@@ -343,7 +367,12 @@ export default function Followups() {
       </Tabs>
 
       {/* Convert Dialog */}
-      <Dialog open={convertDialog.open} onOpenChange={(open) => !open && setConvertDialog({ open: false })}>
+      <Dialog
+        open={convertDialog.open}
+        onOpenChange={(open) => {
+          if (!open) { setConvertDialog({ open: false }); setSaleInput(""); setInvoiceInput(""); }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -351,25 +380,45 @@ export default function Followups() {
               Mark as Converted
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">Enter the sale amount to record this conversion.</p>
-            <div className="relative">
-              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="number"
-                min="1"
-                step="any"
-                placeholder="0.00"
-                value={saleInput}
-                onChange={(e) => setSaleInput(e.target.value)}
-                className="pl-9 h-11"
-                onKeyDown={(e) => e.key === "Enter" && handleConvertSubmit()}
-                autoFocus
-              />
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">Both fields are required to record a conversion.</p>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Sale Amount *</label>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  min="1"
+                  step="any"
+                  placeholder="0.00"
+                  value={saleInput}
+                  onChange={(e) => setSaleInput(e.target.value)}
+                  className="pl-9 h-11"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Invoice Number *</label>
+              <div className="relative">
+                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="e.g. INV-2024-001"
+                  value={invoiceInput}
+                  onChange={(e) => setInvoiceInput(e.target.value)}
+                  className="pl-9 h-11 font-mono"
+                  onKeyDown={(e) => e.key === "Enter" && handleConvertSubmit()}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setConvertDialog({ open: false })}>Cancel</Button>
+            <Button variant="ghost" onClick={() => { setConvertDialog({ open: false }); setSaleInput(""); setInvoiceInput(""); }}>
+              Cancel
+            </Button>
             <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleConvertSubmit} disabled={update.isPending}>
               {update.isPending ? "Saving…" : "Confirm Conversion"}
             </Button>

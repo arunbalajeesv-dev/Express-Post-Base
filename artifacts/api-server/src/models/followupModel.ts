@@ -1,5 +1,5 @@
 import { db, followupsTable, visitsTable, customersTable, usersTable } from "@workspace/db";
-import { eq, gte, lt, and, inArray } from "drizzle-orm";
+import { eq, gte, lt, and, inArray, ne } from "drizzle-orm";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -14,6 +14,7 @@ const followupWithDetails = (statusFilter?: string[]) => {
       notes: followupsTable.notes,
       convertedAt: followupsTable.convertedAt,
       saleAmount: followupsTable.saleAmount,
+      invoiceNumber: followupsTable.invoiceNumber,
       visit: {
         id: visitsTable.id,
         area: visitsTable.area,
@@ -76,6 +77,7 @@ export async function getPendingFollowups() {
       notes: followupsTable.notes,
       convertedAt: followupsTable.convertedAt,
       saleAmount: followupsTable.saleAmount,
+      invoiceNumber: followupsTable.invoiceNumber,
       visit: {
         id: visitsTable.id,
         area: visitsTable.area,
@@ -127,6 +129,7 @@ export async function getOverdueFollowups() {
         notes: followupsTable.notes,
         convertedAt: followupsTable.convertedAt,
         saleAmount: followupsTable.saleAmount,
+        invoiceNumber: followupsTable.invoiceNumber,
         visit: {
           id: visitsTable.id,
           area: visitsTable.area,
@@ -167,6 +170,7 @@ export async function updateFollowupStatus(
   data: {
     status: "Pending" | "Completed" | "Converted";
     saleAmount?: string;
+    invoiceNumber?: string;
     followupDate?: string;
   },
 ) {
@@ -178,10 +182,29 @@ export async function updateFollowupStatus(
   if (data.status === "Converted") {
     updates.convertedAt = now;
     updates.saleAmount = data.saleAmount!;
+    updates.invoiceNumber = data.invoiceNumber!;
   }
 
   if (data.status === "Pending" && data.followupDate) {
     updates.followupDate = data.followupDate;
+  }
+
+  if (data.invoiceNumber) {
+    const [dupe] = await db
+      .select({ id: followupsTable.id })
+      .from(followupsTable)
+      .where(
+        and(
+          eq(followupsTable.invoiceNumber, data.invoiceNumber),
+          ne(followupsTable.id, id),
+        ),
+      );
+    if (dupe) {
+      throw Object.assign(
+        new Error(`Invoice number '${data.invoiceNumber}' is already used on another conversion`),
+        { statusCode: 409 },
+      );
+    }
   }
 
   const [updated] = await db

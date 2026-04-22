@@ -21,6 +21,7 @@ const updateFollowupSchema = z
       error: "status must be Pending, Completed, or Converted",
     }),
     sale_amount: z.string().trim().optional(),
+    invoice_number: z.string().trim().optional(),
     followup_date: z
       .string()
       .trim()
@@ -33,13 +34,20 @@ const updateFollowupSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["sale_amount"],
-          message: "sale_amount is required when status is Converted",
+          message: "Sale amount and invoice number are required for conversion",
         });
       } else if (isNaN(Number(data.sale_amount)) || Number(data.sale_amount) <= 0) {
         ctx.addIssue({
           code: "custom",
           path: ["sale_amount"],
           message: "sale_amount must be a positive number",
+        });
+      }
+      if (!data.invoice_number || data.invoice_number.trim() === "") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["invoice_number"],
+          message: "Sale amount and invoice number are required for conversion",
         });
       }
     }
@@ -108,6 +116,7 @@ export const updateFollowupStatus: RequestHandler = async (req, res) => {
   const updated = await followupModel.updateFollowupStatus(id, {
     status: payload.status,
     saleAmount: payload.sale_amount,
+    invoiceNumber: payload.invoice_number,
     followupDate: payload.followup_date,
   });
 

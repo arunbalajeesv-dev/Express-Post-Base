@@ -11,6 +11,7 @@ export const followupsTable = pgTable("followups", {
   notes: text("notes"),
   convertedAt: timestamp("converted_at"),
   saleAmount: numeric("sale_amount", { precision: 12, scale: 2 }),
+  invoiceNumber: text("invoice_number").unique(),
 });
 
 export const selectFollowupSchema = createSelectSchema(followupsTable);
