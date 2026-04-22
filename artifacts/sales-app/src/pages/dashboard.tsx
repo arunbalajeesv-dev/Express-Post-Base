@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   useGetTotalVisits,
   useGetFeedbackSummary,
@@ -13,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Users, FileSpreadsheet, FileText, Activity } from "lucide-react";
+import { BarChart, Users, FileSpreadsheet, FileText, Activity, TrendingUp, IndianRupee } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -31,6 +32,17 @@ const FEEDBACK_COLORS: Record<string, string> = {
   Interested: "hsl(var(--chart-1))",
   Potential: "hsl(var(--chart-4))",
   "Not Interested": "hsl(var(--muted-foreground))",
+};
+
+type ConversionUser = {
+  userId: number;
+  userName: string;
+  userLoginId: string;
+  totalVisits: number;
+  totalFollowups: number;
+  convertedCount: number;
+  conversionRate: number;
+  totalSalesValue: number;
 };
 
 export default function Dashboard() {
@@ -52,6 +64,19 @@ export default function Dashboard() {
     { period },
     { query: { queryKey: getGetVisitsPerUserQueryKey({ period }) } },
   );
+
+  const { data: conversionData, isLoading: isLoadingConversion } = useQuery<ConversionUser[]>({
+    queryKey: ["dashboard-conversion-summary"],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/dashboard/conversion-summary", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load conversion summary");
+      const json = await res.json();
+      return json.data ?? [];
+    },
+  });
 
   const handleExport = async (type: "excel" | "pdf") => {
     try {
@@ -235,6 +260,73 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Conversion Metrics */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div>
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Conversion Performance
+            </CardTitle>
+            <CardDescription>Follow-up to sale conversion per sales user</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingConversion ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
+          ) : (conversionData ?? []).length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+              <TrendingUp className="h-8 w-8 mb-2 opacity-20" />
+              <span className="text-sm">No conversion data yet</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(conversionData ?? []).map((u) => (
+                <div key={u.userId} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                      {u.userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm leading-none">{u.userName}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{u.userLoginId}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3 sm:gap-4 text-center sm:shrink-0">
+                    <div>
+                      <div className="text-lg font-bold leading-none">{u.totalVisits}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Visits</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold leading-none">{u.totalFollowups}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Follow-ups</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold leading-none text-green-600 dark:text-green-400">{u.convertedCount}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Converted</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold leading-none text-primary">{u.conversionRate}%</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Rate</div>
+                    </div>
+                  </div>
+
+                  {u.totalSalesValue > 0 && (
+                    <div className="flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-lg whitespace-nowrap">
+                      <IndianRupee className="h-3.5 w-3.5" />
+                      {u.totalSalesValue.toLocaleString("en-IN")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

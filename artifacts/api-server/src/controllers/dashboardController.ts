@@ -33,3 +33,8 @@ export const getInactiveUsersToday: RequestHandler = async (_req, res) => {
   const data = await dashboardModel.inactiveUsersToday();
   res.status(200).json({ data });
 };
+
+export const getConversionSummary: RequestHandler = async (_req, res) => {
+  const data = await dashboardModel.conversionSummary();
+  res.status(200).json({ data });
+};

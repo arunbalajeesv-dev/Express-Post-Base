@@ -1,4 +1,4 @@
-import { db, visitsTable, usersTable } from "@workspace/db";
+import { db, visitsTable, usersTable, followupsTable } from "@workspace/db";
 import { eq, gte, and, sql, notInArray, ne } from "drizzle-orm";
 
 function todayStr() {
@@ -107,6 +107,39 @@ export async function feedbackSummary() {
   }
 
   return summary;
+}
+
+export async function conversionSummary() {
+  const rows = await db
+    .select({
+      userId: usersTable.id,
+      userName: usersTable.name,
+      userLoginId: usersTable.userId,
+      totalVisits: sql<number>`count(distinct ${visitsTable.id})::int`,
+      totalFollowups: sql<number>`count(distinct ${followupsTable.id})::int`,
+      convertedCount: sql<number>`count(distinct case when ${followupsTable.status} = 'Converted' then ${followupsTable.id} end)::int`,
+      totalSalesValue: sql<string>`coalesce(sum(case when ${followupsTable.status} = 'Converted' then ${followupsTable.saleAmount} else 0 end), 0)::text`,
+    })
+    .from(usersTable)
+    .leftJoin(visitsTable, eq(visitsTable.userId, usersTable.id))
+    .leftJoin(followupsTable, eq(followupsTable.visitId, visitsTable.id))
+    .where(ne(usersTable.role, "manager"))
+    .groupBy(usersTable.id, usersTable.name, usersTable.userId)
+    .orderBy(usersTable.name);
+
+  return rows.map((r) => ({
+    userId: r.userId,
+    userName: r.userName,
+    userLoginId: r.userLoginId,
+    totalVisits: r.totalVisits,
+    totalFollowups: r.totalFollowups,
+    convertedCount: r.convertedCount,
+    conversionRate:
+      r.totalFollowups > 0
+        ? Math.round((r.convertedCount / r.totalFollowups) * 100)
+        : 0,
+    totalSalesValue: parseFloat(r.totalSalesValue ?? "0"),
+  }));
 }
 
 export async function inactiveUsersToday() {
