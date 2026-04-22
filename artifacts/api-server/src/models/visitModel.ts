@@ -12,7 +12,7 @@ export type AddVisitData = {
   userId: number;
   customerId: number;
   area: string;
-  layout: string;
+  layout?: string;
   locationLink: string;
   siteStage: string;
   feedback: string;

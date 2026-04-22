@@ -20,33 +20,37 @@ const AREA_OPTIONS = [
 ];
 
 const SITE_STAGE_OPTIONS = [
-  "Foundation", "Plinth", "Roof Slab",
-  "Brick Work", "Plastering", "Finishing", "Handover", "Other",
+  "New Site/ Foundation",
+  "Brickwork",
+  "Plastering",
+  "Roofing",
+  "Painting/ Tiles",
+  "Plumbing/ Electrical",
+  "Finishing Stage",
 ];
 
 const visitSchema = z
   .object({
-    customer_name:    z.string().trim().min(1, "Customer name is required"),
-    mobile_number:    z.string().trim().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
-    company_name:     z.string().trim().min(1, "Company name is required"),
-    area:             z.string().min(1, "Area is required"),
-    area_other:       z.string().trim().optional(),
-    layout:           z.string().trim().min(1, "Layout / project name is required"),
-    location_link:    z.string().trim().min(1, "Location link is required"),
-    site_stage:       z.string().min(1, "Site stage is required"),
-    site_stage_other: z.string().trim().optional(),
-    feedback:         z.enum(["Interested", "Not Interested", "Potential"], {
+    customer_name: z.string().trim().min(1, "Customer name is required"),
+    mobile_number: z.string().trim().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
+    company_name:  z.string().trim().optional(),
+    area:          z.string().min(1, "Area is required"),
+    area_other:    z.string().trim().optional(),
+    layout:        z.string().trim().optional(),
+    location_link: z.string().trim().min(1, "Location link is required"),
+    site_stage:    z.enum(
+      ["New Site/ Foundation", "Brickwork", "Plastering", "Roofing", "Painting/ Tiles", "Plumbing/ Electrical", "Finishing Stage"],
+      { errorMap: () => ({ message: "Please select a site stage" }) }
+    ),
+    feedback:      z.enum(["Interested", "Not Interested", "Potential"], {
       errorMap: () => ({ message: "Please select a feedback option" }),
     }),
-    notes:            z.string().trim().min(1, "Notes are required"),
-    image_url:        z.string().min(1, "Photo is required — please upload a site image"),
+    notes:         z.string().trim().min(1, "Notes are required"),
+    image_url:     z.string().min(1, "Photo is required — please upload a site image"),
   })
   .superRefine((data, ctx) => {
     if (data.area === "Other" && !data.area_other?.trim()) {
       ctx.addIssue({ code: "custom", path: ["area_other"], message: "Please specify the area" });
-    }
-    if (data.site_stage === "Other" && !data.site_stage_other?.trim()) {
-      ctx.addIssue({ code: "custom", path: ["site_stage_other"], message: "Please specify the site stage" });
     }
   });
 
@@ -83,8 +87,7 @@ export default function AddVisit() {
       area_other: "",
       layout: "",
       location_link: "",
-      site_stage: "",
-      site_stage_other: "",
+      site_stage: undefined,
       feedback: undefined,
       notes: "",
       image_url: "",
@@ -92,7 +95,6 @@ export default function AddVisit() {
   });
 
   const watchArea = form.watch("area");
-  const watchSiteStage = form.watch("site_stage");
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -162,9 +164,9 @@ export default function AddVisit() {
       mobile_number:  data.mobile_number,
       company_name:   data.company_name,
       area:           data.area === "Other" ? data.area_other! : data.area,
-      layout:         data.layout,
+      layout:         data.layout || undefined,
       location_link:  data.location_link,
-      site_stage:     data.site_stage === "Other" ? data.site_stage_other! : data.site_stage,
+      site_stage:     data.site_stage,
       brands_used:    [
         ...selectedBrandIds.map((id) => ({ brandId: id })),
         ...customBrands.map((name) => ({ customBrandName: name })),
@@ -211,7 +213,7 @@ export default function AddVisit() {
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Record Visit</h1>
-          <p className="text-sm text-muted-foreground">All fields are required</p>
+          <p className="text-sm text-muted-foreground">* indicates required field</p>
         </div>
       </div>
 
@@ -248,7 +250,7 @@ export default function AddVisit() {
 
               <FormField control={form.control} name="company_name" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Company / Builder Name *</FormLabel>
+                  <FormLabel>Company / Builder Name <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                   <FormControl><Input placeholder="e.g. Prestige Constructions" {...field} className="h-11" /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -288,7 +290,7 @@ export default function AddVisit() {
 
               <FormField control={form.control} name="layout" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Layout / Project Name *</FormLabel>
+                  <FormLabel>Layout / Project Name <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                   <FormControl><Input placeholder="e.g. Green Valley Phase 2" {...field} className="h-11" /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -317,15 +319,6 @@ export default function AddVisit() {
                 </FormItem>
               )} />
 
-              {watchSiteStage === "Other" && (
-                <FormField control={form.control} name="site_stage_other" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Specify Stage *</FormLabel>
-                    <FormControl><Input placeholder="Enter stage name" {...field} className="h-11" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              )}
             </CardContent>
           </Card>
 

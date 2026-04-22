@@ -9,7 +9,7 @@ export const visitsTable = pgTable("visits", {
   userId: integer("user_id").notNull().references(() => usersTable.id),
   customerId: integer("customer_id").notNull().references(() => customersTable.id),
   area: text("area").notNull(),
-  layout: text("layout").notNull(),
+  layout: text("layout"),
   locationLink: text("location_link").notNull(),
   siteStage: text("site_stage").notNull(),
   feedback: text("feedback").notNull(),

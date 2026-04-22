@@ -19,14 +19,26 @@ const brandEntrySchema = z.object({
   customBrandName: z.string().trim().min(1).optional(),
 });
 
+const SITE_STAGE_VALUES = [
+  "New Site/ Foundation",
+  "Brickwork",
+  "Plastering",
+  "Roofing",
+  "Painting/ Tiles",
+  "Plumbing/ Electrical",
+  "Finishing Stage",
+] as const;
+
 const addVisitSchema = z.object({
   customer_name:  z.string().trim().min(1, "Customer name is required"),
   mobile_number:  z.string().trim().regex(mobileRegex, "Must be a valid 10-digit Indian mobile number starting with 6-9"),
-  company_name:   z.string().trim().min(1, "Company name is required"),
+  company_name:   z.string().trim().optional(),
   area:           z.string().trim().min(1, "Area is required"),
-  layout:         z.string().trim().min(1, "Layout is required"),
+  layout:         z.string().trim().optional(),
   location_link:  z.string().trim().min(1, "Location link is required"),
-  site_stage:     z.string().trim().min(1, "Site stage is required"),
+  site_stage:     z.enum(SITE_STAGE_VALUES, {
+    error: `Site stage must be one of: ${SITE_STAGE_VALUES.join(", ")}`,
+  }),
   brands_used:    z.array(brandEntrySchema).min(1, "At least one brand must be selected"),
   feedback:       z.enum(["Interested", "Not Interested", "Potential"], {
     error: "Feedback must be Interested, Not Interested, or Potential",
