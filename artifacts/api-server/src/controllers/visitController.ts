@@ -3,6 +3,15 @@ import { z } from "zod/v4";
 import * as customerModel from "../models/customerModel";
 import * as visitModel from "../models/visitModel";
 
+export const listVisits: RequestHandler = async (req, res) => {
+  const user = req.user!;
+  const isManager = user.role === "Manager" || user.role === "manager";
+  const visits = isManager
+    ? await visitModel.listVisits()
+    : await visitModel.listVisits(user.id);
+  res.json({ data: visits });
+};
+
 const mobileRegex = /^[6-9]\d{9}$/;
 
 const addVisitSchema = z.object({

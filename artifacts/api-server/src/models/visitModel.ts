@@ -2,8 +2,11 @@ import {
   db,
   visitsTable,
   visitBrandsTable,
+  customersTable,
+  usersTable,
   type InsertVisitBrand,
 } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 export type AddVisitData = {
   userId: number;
@@ -43,4 +46,36 @@ export async function createVisitWithBrands(
 
     return { visit, brandsUsed: visitBrands };
   });
+}
+
+export async function listVisits(userId?: number) {
+  const rows = await db
+    .select({
+      id: visitsTable.id,
+      feedback: visitsTable.feedback,
+      visitDate: visitsTable.visitDate,
+      visitTime: visitsTable.visitTime,
+      imageUrl: visitsTable.imageUrl,
+      area: visitsTable.area,
+      notes: visitsTable.notes,
+      customer: {
+        id: customersTable.id,
+        name: customersTable.name,
+        mobile: customersTable.mobile,
+      },
+      user: {
+        id: usersTable.id,
+        name: usersTable.name,
+        userId: usersTable.userId,
+      },
+    })
+    .from(visitsTable)
+    .innerJoin(customersTable, eq(visitsTable.customerId, customersTable.id))
+    .innerJoin(usersTable, eq(visitsTable.userId, usersTable.id))
+    .orderBy(visitsTable.id);
+
+  if (userId !== undefined) {
+    return rows.filter((r) => r.user.id === userId);
+  }
+  return rows;
 }

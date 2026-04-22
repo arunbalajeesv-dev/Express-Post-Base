@@ -169,10 +169,10 @@ export default function Users() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}
         </div>
-      ) : usersData?.users && usersData.users.length > 0 ? (
+      ) : (usersData?.data ?? []).filter((u: any) => u.userId).length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {usersData.users.map((u) => (
-            <Card key={u.id} className="overflow-hidden hover-elevate transition-all border-border/50">
+          {(usersData?.data ?? []).filter((u: any) => u.userId).map((u: any) => (
+            <Card key={u.id} className="overflow-hidden transition-all border-border/50">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
@@ -180,6 +180,7 @@ export default function Users() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-lg truncate">{u.name}</h3>
+                    <div className="text-xs text-muted-foreground mt-0.5">{u.userId}</div>
                     <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
                       <Shield className="h-3.5 w-3.5" />
                       {u.role}
@@ -190,9 +191,6 @@ export default function Users() {
                         {u.mobile}
                       </div>
                     )}
-                  </div>
-                  <div className={`px-2 py-1 rounded-md text-[10px] font-medium tracking-wider uppercase ${u.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
-                    {u.is_active ? 'Active' : 'Inactive'}
                   </div>
                 </div>
               </CardContent>

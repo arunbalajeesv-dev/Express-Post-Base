@@ -20,6 +20,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizeRole(role: string): Role {
+  const lower = role.toLowerCase();
+  if (lower === "manager") return "Manager";
+  return "Sales";
+}
+
 function decodeJwt(token: string): UserContextData | null {
   try {
     const base64Url = token.split(".")[1];
@@ -30,7 +36,11 @@ function decodeJwt(token: string): UserContextData | null {
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
         .join("")
     );
-    return JSON.parse(jsonPayload);
+    const payload = JSON.parse(jsonPayload);
+    return {
+      ...payload,
+      role: normalizeRole(payload.role ?? ""),
+    };
   } catch (e) {
     return null;
   }

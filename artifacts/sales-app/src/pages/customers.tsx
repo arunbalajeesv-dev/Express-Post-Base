@@ -17,7 +17,7 @@ export default function Customers() {
         });
         if (res.ok) {
           const data = await res.json();
-          const visits = data.visits ?? data ?? [];
+          const visits = data.data ?? [];
           const unique = new Map();
           visits.forEach((v: any) => {
             if (v.customer && !unique.has(v.customer.mobile)) {

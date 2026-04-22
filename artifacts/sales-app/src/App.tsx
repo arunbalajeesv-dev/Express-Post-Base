@@ -16,14 +16,17 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ component: Component, allowedRoles }: { component: any, allowedRoles?: string[] }) {
+function ProtectedRoute({ component: Component, allowedRoles }: { component: any; allowedRoles?: string[] }) {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) return <div className="h-screen w-full flex items-center justify-center"><div className="animate-pulse w-8 h-8 rounded-full bg-primary/20"></div></div>;
+  if (isLoading)
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="animate-pulse w-8 h-8 rounded-full bg-primary/20" />
+      </div>
+    );
 
-  if (!user) {
-    return <Redirect to="/login" />;
-  }
+  if (!user) return <Redirect to="/login" />;
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Redirect to={user.role === "Manager" ? "/dashboard" : "/add-visit"} />;
@@ -51,7 +54,7 @@ function Router() {
         <Redirect to="/login" />
       </Route>
 
-      {/* Manager Routes */}
+      {/* Manager-only routes */}
       <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} allowedRoles={["Manager"]} />
       </Route>
@@ -59,18 +62,18 @@ function Router() {
         <ProtectedRoute component={Users} allowedRoles={["Manager"]} />
       </Route>
 
-      {/* Sales Routes */}
+      {/* Routes accessible by all authenticated users */}
       <Route path="/add-visit">
-        <ProtectedRoute component={AddVisit} allowedRoles={["Sales"]} />
+        <ProtectedRoute component={AddVisit} />
       </Route>
       <Route path="/followups">
-        <ProtectedRoute component={Followups} allowedRoles={["Sales"]} />
+        <ProtectedRoute component={Followups} />
       </Route>
-      <Route path="/followups/overdue">
-        <ProtectedRoute component={OverdueFollowups} allowedRoles={["Sales"]} />
+      <Route path="/followups-overdue">
+        <ProtectedRoute component={OverdueFollowups} />
       </Route>
       <Route path="/customers">
-        <ProtectedRoute component={Customers} allowedRoles={["Sales"]} />
+        <ProtectedRoute component={Customers} />
       </Route>
 
       <Route component={NotFound} />

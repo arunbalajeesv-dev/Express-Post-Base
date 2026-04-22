@@ -29,24 +29,24 @@ export default function OverdueFollowups() {
         <div className="space-y-4">
           {[1,2].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
         </div>
-      ) : data?.followups && data.followups.length > 0 ? (
+      ) : (data?.data ?? []).length > 0 ? (
         <div className="space-y-4">
-          {data.followups.map((f) => (
+          {(data?.data ?? []).map((f: any) => (
             <Card key={f.id} className="border-l-4 border-l-destructive overflow-hidden bg-destructive/5 border-destructive/20">
               <CardContent className="p-5">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-semibold text-lg flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      {f.customer.name}
+                      {f.customer?.name ?? "—"}
                     </h3>
                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                       <Phone className="h-4 w-4" />
-                      {f.customer.mobile}
+                      {f.customer?.mobile ?? "—"}
                     </div>
                     <div className="flex items-center gap-2 mt-2 text-sm font-medium text-destructive flex-wrap">
                       <AlertCircle className="h-4 w-4" />
-                      Missed on {format(new Date(f.scheduled_date), "MMM d, yyyy")}
+                      Missed on {f.followupDate ? format(new Date(f.followupDate), "MMM d, yyyy") : "—"}
                     </div>
                   </div>
                 </div>

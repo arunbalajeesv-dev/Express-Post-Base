@@ -1,14 +1,15 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { 
-  Home, 
-  MapPin, 
-  ListTodo, 
-  Users, 
+import {
+  Home,
+  MapPin,
+  ListTodo,
+  Users,
   LogOut,
-  User as UserIcon,
-  AlertCircle
+  AlertCircle,
+  UserCheck,
+  BookUser,
 } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -26,16 +27,20 @@ export function Layout({ children }: LayoutProps) {
 
   const isManager = user.role === "Manager";
 
-  const navItems = isManager 
+  const sharedNavItems = [
+    { href: "/add-visit", label: "Add Visit", icon: MapPin },
+    { href: "/customers", label: "Customers", icon: BookUser },
+    { href: "/followups", label: "Follow-ups", icon: ListTodo },
+    { href: "/followups-overdue", label: "Overdue", icon: AlertCircle },
+  ];
+
+  const navItems = isManager
     ? [
         { href: "/dashboard", label: "Dashboard", icon: Home },
-        { href: "/users", label: "Team", icon: Users },
+        ...sharedNavItems,
+        { href: "/users", label: "Team", icon: UserCheck },
       ]
-    : [
-        { href: "/add-visit", label: "Visit", icon: MapPin },
-        { href: "/followups", label: "Follow-ups", icon: ListTodo },
-        { href: "/customers", label: "Customers", icon: Users },
-      ];
+    : sharedNavItems;
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
