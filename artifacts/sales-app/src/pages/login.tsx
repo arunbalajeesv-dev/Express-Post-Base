@@ -12,7 +12,7 @@ import { Loader2, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
-  userId: z.string().min(1, "User ID is required"),
+  user_id: z.string().min(1, "User ID is required"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -26,7 +26,7 @@ export default function Login() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      userId: "",
+      user_id: "",
       password: "",
     },
   });
@@ -67,7 +67,7 @@ export default function Login() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="userId"
+                  name="user_id"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>User ID</FormLabel>
