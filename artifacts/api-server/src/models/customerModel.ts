@@ -26,3 +26,14 @@ export async function createCustomer(data: {
   if (!customer) throw new Error("Unable to create customer");
   return customer;
 }
+
+export async function updateCompanyName(id: number, companyName: string) {
+  const [customer] = await db
+    .update(customersTable)
+    .set({ companyName })
+    .where(eq(customersTable.id, id))
+    .returning();
+
+  if (!customer) throw new Error("Unable to update customer");
+  return customer;
+}

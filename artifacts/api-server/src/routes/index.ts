@@ -5,6 +5,7 @@ import dashboardRouter from "./dashboard";
 import exportRouter from "./export";
 import followupsRouter from "./followups";
 import healthRouter from "./health";
+import uploadRouter from "./upload";
 import usersRouter from "./users";
 import visitsRouter from "./visits";
 
@@ -18,5 +19,6 @@ router.use(visitsRouter);
 router.use(followupsRouter);
 router.use(dashboardRouter);
 router.use(exportRouter);
+router.use(uploadRouter);
 
 export default router;

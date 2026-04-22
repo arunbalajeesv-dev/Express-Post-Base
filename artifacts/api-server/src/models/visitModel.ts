@@ -11,12 +11,14 @@ import { eq } from "drizzle-orm";
 export type AddVisitData = {
   userId: number;
   customerId: number;
-  area?: string;
-  siteStage?: string;
-  feedback?: string;
+  area: string;
+  layout: string;
+  locationLink: string;
+  siteStage: string;
+  feedback: string;
   visitDate: string;
   visitTime: string;
-  notes?: string;
+  notes: string;
   imageUrl: string;
 };
 
@@ -53,10 +55,13 @@ export async function listVisits(userId?: number) {
     .select({
       id: visitsTable.id,
       feedback: visitsTable.feedback,
+      area: visitsTable.area,
+      layout: visitsTable.layout,
+      locationLink: visitsTable.locationLink,
+      siteStage: visitsTable.siteStage,
       visitDate: visitsTable.visitDate,
       visitTime: visitsTable.visitTime,
       imageUrl: visitsTable.imageUrl,
-      area: visitsTable.area,
       notes: visitsTable.notes,
       customer: {
         id: customersTable.id,

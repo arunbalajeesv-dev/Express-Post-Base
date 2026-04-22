@@ -102,6 +102,7 @@ async function buildAll() {
       "electron",
       "pdfkit",
       "exceljs",
+      "multer",
     ],
     sourcemap: "linked",
     plugins: [

@@ -14,20 +14,25 @@ export const listVisits: RequestHandler = async (req, res) => {
 
 const mobileRegex = /^[6-9]\d{9}$/;
 
+const brandEntrySchema = z.object({
+  brandId: z.number().int().positive().optional(),
+  customBrandName: z.string().trim().min(1).optional(),
+});
+
 const addVisitSchema = z.object({
-  customer_name: z.string().trim().min(1, "Customer name is required"),
-  mobile_number: z
-    .string()
-    .trim()
-    .regex(mobileRegex, "Mobile number must be a valid 10-digit Indian number starting with 6-9"),
-  company_name: z.string().trim().optional(),
-  area: z.string().trim().optional(),
-  site_stage: z.string().trim().optional(),
-  feedback: z.enum(["Interested", "Not Interested", "Potential"], {
-    error: "Feedback must be one of: Interested, Not Interested, Potential",
+  customer_name:  z.string().trim().min(1, "Customer name is required"),
+  mobile_number:  z.string().trim().regex(mobileRegex, "Must be a valid 10-digit Indian mobile number starting with 6-9"),
+  company_name:   z.string().trim().min(1, "Company name is required"),
+  area:           z.string().trim().min(1, "Area is required"),
+  layout:         z.string().trim().min(1, "Layout is required"),
+  location_link:  z.string().trim().min(1, "Location link is required"),
+  site_stage:     z.string().trim().min(1, "Site stage is required"),
+  brands_used:    z.array(brandEntrySchema).min(1, "At least one brand must be selected"),
+  feedback:       z.enum(["Interested", "Not Interested", "Potential"], {
+    error: "Feedback must be Interested, Not Interested, or Potential",
   }),
-  notes: z.string().trim().optional(),
-  image_url: z.string().trim().min(1, "Image URL is required"),
+  notes:          z.string().trim().min(1, "Notes are required"),
+  image_url:      z.string().trim().min(1, "Photo is required — please upload an image"),
 });
 
 export const createVisit: RequestHandler = async (req, res) => {
@@ -45,19 +50,31 @@ export const createVisit: RequestHandler = async (req, res) => {
       mobile: payload.mobile_number,
       companyName: payload.company_name,
     });
+  } else {
+    customer = await customerModel.updateCompanyName(customer.id, payload.company_name);
   }
 
-  const result = await visitModel.createVisitWithBrands({
-    userId: req.user!.id,
-    customerId: customer.id,
-    area: payload.area,
-    siteStage: payload.site_stage,
-    feedback: payload.feedback,
-    visitDate,
-    visitTime,
-    notes: payload.notes,
-    imageUrl: payload.image_url,
-  });
+  const brandLinks = payload.brands_used.map((b) => ({
+    brandId: b.brandId ?? null,
+    customBrandName: b.customBrandName ?? null,
+  }));
+
+  const result = await visitModel.createVisitWithBrands(
+    {
+      userId: req.user!.id,
+      customerId: customer.id,
+      area: payload.area,
+      layout: payload.layout,
+      locationLink: payload.location_link,
+      siteStage: payload.site_stage,
+      feedback: payload.feedback,
+      visitDate,
+      visitTime,
+      notes: payload.notes,
+      imageUrl: payload.image_url,
+    },
+    brandLinks,
+  );
 
   res.status(201).json({
     message: "Visit recorded successfully",

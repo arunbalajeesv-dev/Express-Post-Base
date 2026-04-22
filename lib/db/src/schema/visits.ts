@@ -8,13 +8,15 @@ export const visitsTable = pgTable("visits", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
   customerId: integer("customer_id").notNull().references(() => customersTable.id),
-  area: text("area"),
-  siteStage: text("site_stage"),
-  feedback: text("feedback"),
+  area: text("area").notNull(),
+  layout: text("layout").notNull(),
+  locationLink: text("location_link").notNull(),
+  siteStage: text("site_stage").notNull(),
+  feedback: text("feedback").notNull(),
   visitDate: date("visit_date").notNull(),
   visitTime: time("visit_time").notNull(),
-  notes: text("notes"),
-  imageUrl: text("image_url"),
+  notes: text("notes").notNull(),
+  imageUrl: text("image_url").notNull(),
 });
 
 export const selectVisitSchema = createSelectSchema(visitsTable);
