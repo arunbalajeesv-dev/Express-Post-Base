@@ -5,35 +5,47 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function tomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+const followupSelect = {
+  id: followupsTable.id,
+  followupDate: followupsTable.followupDate,
+  status: followupsTable.status,
+  notes: followupsTable.notes,
+  convertedAt: followupsTable.convertedAt,
+  saleAmount: followupsTable.saleAmount,
+  invoiceNumber: followupsTable.invoiceNumber,
+  summary: followupsTable.summary,
+  spokeToCustomer: followupsTable.spokeToCustomer,
+  quotationSent: followupsTable.quotationSent,
+  quotationNumber: followupsTable.quotationNumber,
+  visit: {
+    id: visitsTable.id,
+    area: visitsTable.area,
+    siteStage: visitsTable.siteStage,
+    feedback: visitsTable.feedback,
+    visitDate: visitsTable.visitDate,
+  },
+  customer: {
+    id: customersTable.id,
+    name: customersTable.name,
+    mobile: customersTable.mobile,
+    companyName: customersTable.companyName,
+  },
+  assignedTo: {
+    id: usersTable.id,
+    name: usersTable.name,
+    userId: usersTable.userId,
+  },
+};
+
 const followupWithDetails = (statusFilter?: string[]) => {
   const base = db
-    .select({
-      id: followupsTable.id,
-      followupDate: followupsTable.followupDate,
-      status: followupsTable.status,
-      notes: followupsTable.notes,
-      convertedAt: followupsTable.convertedAt,
-      saleAmount: followupsTable.saleAmount,
-      invoiceNumber: followupsTable.invoiceNumber,
-      visit: {
-        id: visitsTable.id,
-        area: visitsTable.area,
-        siteStage: visitsTable.siteStage,
-        feedback: visitsTable.feedback,
-        visitDate: visitsTable.visitDate,
-      },
-      customer: {
-        id: customersTable.id,
-        name: customersTable.name,
-        mobile: customersTable.mobile,
-        companyName: customersTable.companyName,
-      },
-      assignedTo: {
-        id: usersTable.id,
-        name: usersTable.name,
-        userId: usersTable.userId,
-      },
-    })
+    .select(followupSelect)
     .from(followupsTable)
     .leftJoin(visitsTable, eq(followupsTable.visitId, visitsTable.id))
     .leftJoin(customersTable, eq(visitsTable.customerId, customersTable.id))
@@ -70,33 +82,7 @@ export async function getAllFollowups() {
 
 export async function getPendingFollowups() {
   return db
-    .select({
-      id: followupsTable.id,
-      followupDate: followupsTable.followupDate,
-      status: followupsTable.status,
-      notes: followupsTable.notes,
-      convertedAt: followupsTable.convertedAt,
-      saleAmount: followupsTable.saleAmount,
-      invoiceNumber: followupsTable.invoiceNumber,
-      visit: {
-        id: visitsTable.id,
-        area: visitsTable.area,
-        siteStage: visitsTable.siteStage,
-        feedback: visitsTable.feedback,
-        visitDate: visitsTable.visitDate,
-      },
-      customer: {
-        id: customersTable.id,
-        name: customersTable.name,
-        mobile: customersTable.mobile,
-        companyName: customersTable.companyName,
-      },
-      assignedTo: {
-        id: usersTable.id,
-        name: usersTable.name,
-        userId: usersTable.userId,
-      },
-    })
+    .select(followupSelect)
     .from(followupsTable)
     .leftJoin(visitsTable, eq(followupsTable.visitId, visitsTable.id))
     .leftJoin(customersTable, eq(visitsTable.customerId, customersTable.id))
@@ -122,33 +108,7 @@ export async function getOverdueFollowups() {
       );
 
     return tx
-      .select({
-        id: followupsTable.id,
-        followupDate: followupsTable.followupDate,
-        status: followupsTable.status,
-        notes: followupsTable.notes,
-        convertedAt: followupsTable.convertedAt,
-        saleAmount: followupsTable.saleAmount,
-        invoiceNumber: followupsTable.invoiceNumber,
-        visit: {
-          id: visitsTable.id,
-          area: visitsTable.area,
-          siteStage: visitsTable.siteStage,
-          feedback: visitsTable.feedback,
-          visitDate: visitsTable.visitDate,
-        },
-        customer: {
-          id: customersTable.id,
-          name: customersTable.name,
-          mobile: customersTable.mobile,
-          companyName: customersTable.companyName,
-        },
-        assignedTo: {
-          id: usersTable.id,
-          name: usersTable.name,
-          userId: usersTable.userId,
-        },
-      })
+      .select(followupSelect)
       .from(followupsTable)
       .leftJoin(visitsTable, eq(followupsTable.visitId, visitsTable.id))
       .leftJoin(customersTable, eq(visitsTable.customerId, customersTable.id))
@@ -168,10 +128,14 @@ export async function getFollowupById(id: number) {
 export async function updateFollowupStatus(
   id: number,
   data: {
-    status: "Pending" | "Completed" | "Converted";
+    status: "Pending" | "Completed" | "Converted" | "Missed";
     saleAmount?: string;
     invoiceNumber?: string;
     followupDate?: string;
+    summary?: string;
+    spokeToCustomer?: boolean;
+    quotationSent?: boolean;
+    quotationNumber?: string | null;
   },
 ) {
   const now = new Date();
@@ -188,6 +152,11 @@ export async function updateFollowupStatus(
   if (data.status === "Pending" && data.followupDate) {
     updates.followupDate = data.followupDate;
   }
+
+  if (data.summary !== undefined)          updates.summary = data.summary;
+  if (data.spokeToCustomer !== undefined)  updates.spokeToCustomer = data.spokeToCustomer;
+  if (data.quotationSent !== undefined)    updates.quotationSent = data.quotationSent;
+  if (data.quotationNumber !== undefined)  updates.quotationNumber = data.quotationNumber;
 
   if (data.invoiceNumber) {
     const [dupe] = await db
@@ -223,4 +192,38 @@ export async function findVisitById(visitId: number) {
     .from(visitsTable)
     .where(eq(visitsTable.id, visitId));
   return visit ?? null;
+}
+
+export async function findLatestVisitByCustomerId(customerId: number) {
+  const [visit] = await db
+    .select()
+    .from(visitsTable)
+    .where(eq(visitsTable.customerId, customerId))
+    .orderBy(visitsTable.visitDate, visitsTable.id)
+    .limit(1);
+  return visit ?? null;
+}
+
+export async function getFollowupActivitySummary() {
+  const rows = await db
+    .select({
+      id: followupsTable.id,
+      status: followupsTable.status,
+      spokeToCustomer: followupsTable.spokeToCustomer,
+      quotationSent: followupsTable.quotationSent,
+    })
+    .from(followupsTable);
+
+  const completed   = rows.filter((r) => r.status === "Completed" || r.status === "Converted");
+  const spoke       = rows.filter((r) => r.spokeToCustomer === true);
+  const quotations  = rows.filter((r) => r.quotationSent === true);
+  const converted   = rows.filter((r) => r.status === "Converted");
+
+  return {
+    totalCompleted:    completed.length,
+    customerContacted: spoke.length,
+    quotationsSent:    quotations.length,
+    converted:         converted.length,
+    conversionRate:    completed.length > 0 ? Math.round((converted.length / completed.length) * 100) : 0,
+  };
 }

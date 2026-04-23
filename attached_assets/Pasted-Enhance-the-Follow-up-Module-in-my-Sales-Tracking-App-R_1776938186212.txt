@@ -1,0 +1,117 @@
+Enhance the Follow-up Module in my Sales Tracking App (React frontend + Node.js + PostgreSQL backend) to support calendar-based tracking, reminders, and follow-up reporting.
+
+🎯 GOAL
+Help sales agents never miss follow-ups
+Track what happened during each follow-up
+Capture quotation details
+Provide clear visibility to manager
+✅ 1. FRONTEND – CALENDAR VIEW
+
+Replace current Follow-ups page with:
+
+📅 Calendar-Based View
+Show monthly calendar
+Highlight dates with follow-ups
+Clicking a date shows:
+List of follow-ups scheduled for that day
+✅ 2. FOLLOW-UP CATEGORIES
+
+Display sections:
+
+🔹 Upcoming Follow-ups
+Future dates
+🔹 Due Soon (IMPORTANT)
+Follow-ups within next 1–2 days
+Highlight in yellow/orange
+🔹 Overdue
+Past date but not completed
+Highlight in red
+✅ 3. REMINDER SYSTEM
+
+Add reminder logic:
+
+Show alert in UI:
+“You have X follow-ups due tomorrow”
+Highlight in dashboard
+
+(Optional future: notifications)
+
+✅ 4. ADD / SCHEDULE FOLLOW-UP
+
+Add button:
+
+➕ Schedule Follow-up
+
+Fields:
+
+Customer
+Follow-up Date
+Notes
+✅ 5. FOLLOW-UP EXECUTION TRACKING (VERY IMPORTANT)
+
+When agent clicks a follow-up:
+
+Show a form:
+
+📝 Follow-up Report Fields:
+Summary of discussion (TEXT – mandatory)
+Did you speak to customer? (Yes/No – mandatory)
+Quotation sent? (Yes/No – mandatory)
+If “Quotation sent = Yes”:
+Show field:
+Quotation Number (mandatory)
+✅ 6. UPDATE FOLLOW-UP STATUS
+
+Options:
+
+Completed (No Conversion)
+Converted (Sale Done)
+Reschedule
+✅ 7. DATABASE UPDATE
+
+Modify followups table:
+
+Add fields:
+
+summary (text, NOT NULL after completion)
+spoke_to_customer (boolean)
+quotation_sent (boolean)
+quotation_number (text, nullable)
+✅ 8. VALIDATION RULES
+Summary must be filled when completing follow-up
+spoke_to_customer must be selected
+quotation_sent must be selected
+If quotation_sent = true:
+→ quotation_number is mandatory
+✅ 9. DISPLAY IN UI
+
+Each follow-up card should show:
+
+Customer Name
+Follow-up Date
+Status
+Summary (short preview)
+Quotation Number (if available)
+✅ 10. MANAGER REPORTING
+
+In dashboard, add:
+
+Total follow-ups completed
+Follow-ups where:
+Customer was contacted
+Quotation sent
+Conversion rate
+🎯 FINAL GOAL
+Agents are reminded and accountable
+Manager knows:
+Who is actually talking to customers
+Who is sending quotations
+System captures real sales activity, not just visits
+
+Provide:
+
+Updated frontend calendar UI
+Backend schema changes
+API updates
+Validation logic
+Example responses

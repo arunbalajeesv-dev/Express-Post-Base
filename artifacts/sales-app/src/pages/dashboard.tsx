@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Users, FileSpreadsheet, FileText, Activity, TrendingUp, IndianRupee } from "lucide-react";
+import { BarChart, Users, FileSpreadsheet, FileText, Activity, TrendingUp, IndianRupee, Phone, ClipboardList, CheckCircle2 } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -75,6 +75,25 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to load conversion summary");
       const json = await res.json();
       return json.data ?? [];
+    },
+  });
+
+  const { data: followupActivity, isLoading: isLoadingActivity } = useQuery<{
+    totalCompleted: number;
+    customerContacted: number;
+    quotationsSent: number;
+    converted: number;
+    conversionRate: number;
+  }>({
+    queryKey: ["followup-activity"],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/followups-activity", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load follow-up activity");
+      const json = await res.json();
+      return json.data;
     },
   });
 
@@ -260,6 +279,40 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Follow-up Activity Summary */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Follow-up Activity
+          </CardTitle>
+          <CardDescription>Engagement and quotation tracking across all agents</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingActivity ? (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                { label: "Completed", value: followupActivity?.totalCompleted ?? 0, icon: <CheckCircle2 className="h-4 w-4 text-blue-500" />, color: "text-blue-600 dark:text-blue-400" },
+                { label: "Spoke to Customer", value: followupActivity?.customerContacted ?? 0, icon: <Phone className="h-4 w-4 text-green-500" />, color: "text-green-600 dark:text-green-400" },
+                { label: "Quotations Sent", value: followupActivity?.quotationsSent ?? 0, icon: <ClipboardList className="h-4 w-4 text-primary" />, color: "text-primary" },
+                { label: "Converted", value: followupActivity?.converted ?? 0, icon: <TrendingUp className="h-4 w-4 text-green-600" />, color: "text-green-600 dark:text-green-400" },
+                { label: "Conversion Rate", value: `${followupActivity?.conversionRate ?? 0}%`, icon: <Activity className="h-4 w-4 text-purple-500" />, color: "text-purple-600 dark:text-purple-400" },
+              ].map((stat) => (
+                <div key={stat.label} className="flex flex-col items-center justify-center p-3 rounded-xl bg-muted/40 border border-border/40 text-center gap-1">
+                  {stat.icon}
+                  <div className={`text-xl font-bold leading-none ${stat.color}`}>{stat.value}</div>
+                  <div className="text-xs text-muted-foreground leading-tight">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Conversion Metrics */}
       <Card>

@@ -7,48 +7,50 @@ const addFollowupSchema = z.object({
   followup_date: z
     .string()
     .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "followup_date must be in YYYY-MM-DD format")
-    .refine(
-      (date) => date >= new Date().toISOString().slice(0, 10),
-      "followup_date cannot be in the past",
-    ),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "followup_date must be in YYYY-MM-DD format"),
   notes: z.string().trim().optional(),
 });
 
 const updateFollowupSchema = z
   .object({
-    status: z.enum(["Pending", "Completed", "Converted"], {
+    status:            z.enum(["Pending", "Completed", "Converted"], {
       error: "status must be Pending, Completed, or Converted",
     }),
-    sale_amount: z.string().trim().optional(),
-    invoice_number: z.string().trim().optional(),
-    followup_date: z
+    sale_amount:       z.string().trim().optional(),
+    invoice_number:    z.string().trim().optional(),
+    followup_date:     z
       .string()
       .trim()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "followup_date must be in YYYY-MM-DD format")
       .optional(),
+    summary:           z.string().trim().optional(),
+    spoke_to_customer: z.boolean().optional(),
+    quotation_sent:    z.boolean().optional(),
+    quotation_number:  z.string().trim().optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.status === "Converted") {
-      if (!data.sale_amount || data.sale_amount.trim() === "") {
-        ctx.addIssue({
-          code: "custom",
-          path: ["sale_amount"],
-          message: "Sale amount and invoice number are required for conversion",
-        });
+      if (!data.sale_amount?.trim()) {
+        ctx.addIssue({ code: "custom", path: ["sale_amount"], message: "Sale amount is required for conversion" });
       } else if (isNaN(Number(data.sale_amount)) || Number(data.sale_amount) <= 0) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["sale_amount"],
-          message: "sale_amount must be a positive number",
-        });
+        ctx.addIssue({ code: "custom", path: ["sale_amount"], message: "sale_amount must be a positive number" });
       }
-      if (!data.invoice_number || data.invoice_number.trim() === "") {
-        ctx.addIssue({
-          code: "custom",
-          path: ["invoice_number"],
-          message: "Sale amount and invoice number are required for conversion",
-        });
+      if (!data.invoice_number?.trim()) {
+        ctx.addIssue({ code: "custom", path: ["invoice_number"], message: "Invoice number is required for conversion" });
+      }
+    }
+    if (data.status === "Completed") {
+      if (!data.summary?.trim()) {
+        ctx.addIssue({ code: "custom", path: ["summary"], message: "Summary of discussion is required when completing a follow-up" });
+      }
+      if (data.spoke_to_customer === undefined || data.spoke_to_customer === null) {
+        ctx.addIssue({ code: "custom", path: ["spoke_to_customer"], message: "Please indicate whether you spoke to the customer" });
+      }
+      if (data.quotation_sent === undefined || data.quotation_sent === null) {
+        ctx.addIssue({ code: "custom", path: ["quotation_sent"], message: "Please indicate whether a quotation was sent" });
+      }
+      if (data.quotation_sent === true && !data.quotation_number?.trim()) {
+        ctx.addIssue({ code: "custom", path: ["quotation_number"], message: "Quotation number is required when quotation was sent" });
       }
     }
   });
@@ -114,11 +116,20 @@ export const updateFollowupStatus: RequestHandler = async (req, res) => {
   const payload = updateFollowupSchema.parse(req.body);
 
   const updated = await followupModel.updateFollowupStatus(id, {
-    status: payload.status,
-    saleAmount: payload.sale_amount,
-    invoiceNumber: payload.invoice_number,
-    followupDate: payload.followup_date,
+    status:           payload.status,
+    saleAmount:       payload.sale_amount,
+    invoiceNumber:    payload.invoice_number,
+    followupDate:     payload.followup_date,
+    summary:          payload.summary,
+    spokeToCustomer:  payload.spoke_to_customer,
+    quotationSent:    payload.quotation_sent,
+    quotationNumber:  payload.quotation_number ?? null,
   });
 
   res.status(200).json({ message: "Follow-up updated successfully", data: updated });
+};
+
+export const getFollowupActivity: RequestHandler = async (_req, res) => {
+  const summary = await followupModel.getFollowupActivitySummary();
+  res.status(200).json({ data: summary });
 };

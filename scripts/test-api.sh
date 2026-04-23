@@ -296,10 +296,10 @@ fi
 do_req POST /add-followup --auth "$AGENT_TOKEN" --json '{"notes":"missing visit_id"}'
 assert_status "POST /add-followup — missing fields → 400"     400 "$RESP_STATUS"
 
-# Mark Completed
+# Mark Completed (now requires summary, spoke_to_customer, quotation_sent)
 if [ -n "$NEW_FU_ID1" ]; then
   do_req PUT "/followups/$NEW_FU_ID1" --auth "$AGENT_TOKEN" \
-    --json '{"status":"Completed","notes":"E2E completed"}'
+    --json '{"status":"Completed","summary":"E2E test discussion summary","spoke_to_customer":true,"quotation_sent":false}'
   assert_status "PUT /followups/:id — mark Completed → 200"   200 "$RESP_STATUS"
   assert_eq     "Status is Completed" "$RESP_BODY" ".data.status" "Completed"
 else

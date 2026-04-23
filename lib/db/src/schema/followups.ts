@@ -1,5 +1,5 @@
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { date, integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, date, integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import { visitsTable } from "./visits";
 
@@ -12,6 +12,10 @@ export const followupsTable = pgTable("followups", {
   convertedAt: timestamp("converted_at"),
   saleAmount: numeric("sale_amount", { precision: 12, scale: 2 }),
   invoiceNumber: text("invoice_number").unique(),
+  summary: text("summary"),
+  spokeToCustomer: boolean("spoke_to_customer"),
+  quotationSent: boolean("quotation_sent"),
+  quotationNumber: text("quotation_number"),
 });
 
 export const selectFollowupSchema = createSelectSchema(followupsTable);
