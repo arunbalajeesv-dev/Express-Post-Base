@@ -1,0 +1,196 @@
+Enhance my Sales Tracking App (React frontend + Node.js + PostgreSQL backend) by redesigning the **Customer Page** into a detailed **Customer Overview Dashboard**.
+
+---
+
+## 🎯 GOAL
+
+When a user taps on a customer, show a **complete overview of that customer** including visits, follow-ups, site progress, and sales—along with edit and action options.
+
+---
+
+## ✅ 1. CUSTOMER LIST PAGE (TABLE FORMAT)
+
+Display all customers in a table:
+
+Columns:
+
+* Customer Name
+* Mobile Number
+* Company Name
+* Total Sites
+* Current Site Stage (latest visit)
+* Total Follow-ups
+* Conversion Status (Converted / Not Converted / In Progress)
+
+Features:
+
+* Search by name/mobile
+* Click row → open Customer Detail Page
+
+---
+
+## ✅ 2. CUSTOMER DETAIL PAGE (IMPORTANT)
+
+When a customer is selected, show a structured dashboard:
+
+---
+
+### 🔹 A. Customer Summary Section
+
+Display:
+
+* Customer Name
+* Mobile Number
+* Company Name
+* Type of Customer
+* Total Sites
+* Current Site Stage (latest visit)
+* Total Visits
+* Total Follow-ups
+* Total Conversions
+* Total Sales Value
+
+---
+
+### 🔹 B. Visit History (TABLE)
+
+Columns:
+
+* Date
+* Area
+* Site Stage
+* Brands Used
+* Feedback
+
+Sort:
+
+* Latest first
+
+---
+
+### 🔹 C. Follow-up Section
+
+Show:
+
+* Upcoming Follow-up Date
+* Past Follow-ups (status: Pending / Completed / Converted)
+
+Columns:
+
+* Date
+* Status
+* Notes
+
+---
+
+### 🔹 D. Order / Conversion History
+
+Show all converted follow-ups:
+
+Columns:
+
+* Converted Date
+* Sale Amount
+* Invoice Number
+
+---
+
+### 🔹 E. Brands Used Summary
+
+* Show unique brands used across all visits
+* Display as tags or list
+
+---
+
+## ✅ 3. ACTION BUTTONS (VERY IMPORTANT)
+
+Add buttons:
+
+### ➕ Add Follow-up
+
+* Opens form:
+
+  * Follow-up date
+  * Notes
+* Saves to followups table
+
+---
+
+### ✏️ Edit Customer Details
+
+* Edit:
+
+  * Name
+  * Company Name
+  * Type of Customer
+
+---
+
+### 🔄 Update Site Stage
+
+* Update latest site stage manually
+
+---
+
+### 📅 Update Follow-up
+
+* Edit existing follow-up date/status
+
+---
+
+### 💰 Mark Conversion
+
+* Input:
+
+  * Sale Amount
+  * Invoice Number
+* Update follow-up status = Converted
+
+---
+
+## ✅ 4. BACKEND APIs REQUIRED
+
+Ensure APIs exist:
+
+* GET /customer/:mobile (full customer overview)
+* PUT /customer/:id (update details)
+* PUT /visit/:id (update site stage)
+* POST /followup (create new)
+* PUT /followup/:id (update status / conversion)
+
+---
+
+## ✅ 5. LOGIC RULES
+
+* Current Site Stage = latest visit’s site_stage
+* Total Sites = count of unique visits (or site entries)
+* Conversion = based on followups.status = 'Converted'
+* Sales Value = sum of sale_amount
+
+---
+
+## ✅ 6. UI DESIGN REQUIREMENTS
+
+* Use clean card + table layout
+* Keep it mobile-friendly
+* Make tables scrollable
+* Highlight key numbers (visits, follow-ups, sales)
+
+---
+
+## 🎯 FINAL GOAL
+
+Create a **single-page customer dashboard** where:
+
+* Manager sees full lifecycle
+* Sales agent can take action (follow-up, update, convert)
+* All critical data is visible without navigating multiple screens
+
+---
+
+Provide:
+
+* Frontend components (React)
+* API integration
+* Updated routes
+* Clean UI structure

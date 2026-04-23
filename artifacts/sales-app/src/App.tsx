@@ -11,6 +11,7 @@ import AddVisit from "@/pages/add-visit";
 import Followups from "@/pages/followups";
 import OverdueFollowups from "@/pages/followups-overdue";
 import Customers from "@/pages/customers";
+import CustomerDetail from "@/pages/customer-detail";
 import Users from "@/pages/users";
 import NotFound from "@/pages/not-found";
 
@@ -74,6 +75,9 @@ function Router() {
       </Route>
       <Route path="/customers">
         <ProtectedRoute component={Customers} />
+      </Route>
+      <Route path="/customers/:id">
+        <ProtectedRoute component={CustomerDetail} />
       </Route>
 
       <Route component={NotFound} />

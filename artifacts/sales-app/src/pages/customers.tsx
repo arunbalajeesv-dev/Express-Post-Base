@@ -1,120 +1,173 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
-import { Users, Phone, MapPin, Tag } from "lucide-react";
+import { Users, Search, ChevronRight, Phone, Building2 } from "lucide-react";
+
+const apiGet = (path: string) => {
+  const token = localStorage.getItem("auth_token");
+  return fetch(`/api${path}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());
+};
+
+function conversionBadge(status: string) {
+  if (status === "Converted")
+    return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 border-0 text-[10px] font-semibold uppercase tracking-wide">Converted</Badge>;
+  if (status === "In Progress")
+    return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 border-0 text-[10px] font-semibold uppercase tracking-wide">In Progress</Badge>;
+  return <Badge className="bg-muted text-muted-foreground hover:bg-muted border-0 text-[10px] font-semibold uppercase tracking-wide">Not Converted</Badge>;
+}
 
 export default function Customers() {
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, navigate] = useLocation();
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    async function fetchCustomers() {
-      try {
-        const token = localStorage.getItem("auth_token");
-        const res = await fetch("/api/visits", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const visits = data.data ?? [];
-          const unique = new Map();
-          visits.forEach((v: any) => {
-            if (v.customer && !unique.has(v.customer.mobile)) {
-              const displayType = v.customerType === "Others"
-                ? (v.customCustomerType || "Others")
-                : (v.customerType || null);
-              unique.set(v.customer.mobile, {
-                ...v.customer,
-                last_feedback: v.feedback,
-                last_visit: v.created_at,
-                customer_type: displayType,
-              });
-            }
-          });
-          setCustomers(Array.from(unique.values()));
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCustomers();
-  }, []);
+  const { data, isLoading } = useQuery({
+    queryKey: ["customers"],
+    queryFn: () => apiGet("/customers"),
+  });
 
-  const getFeedbackColor = (feedback: string) => {
-    switch (feedback) {
-      case "Interested":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
-      case "Potential":
-        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  };
+  const customers: any[] = data?.data ?? [];
+
+  const filtered = customers.filter((c) => {
+    const q = search.toLowerCase();
+    return (
+      c.name?.toLowerCase().includes(q) ||
+      c.mobile?.includes(q) ||
+      c.company_name?.toLowerCase().includes(q)
+    );
+  });
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="p-4 md:p-6 space-y-5 max-w-4xl mx-auto">
+      <div className="flex items-center gap-3">
         <div className="p-2 bg-primary/10 rounded-xl text-primary">
           <Users className="h-6 w-6" />
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
-          <p className="text-sm text-muted-foreground">Recent visits and contacts</p>
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? "Loading…" : `${customers.length} customer${customers.length !== 1 ? "s" : ""}`}
+          </p>
         </div>
       </div>
 
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-xl" />
-          ))}
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-9 h-10"
+          placeholder="Search by name, mobile, or company…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
         </div>
-      ) : customers.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {customers.map((c, i) => (
-            <Card key={i} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold text-lg">{c.name}</h3>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                      <Phone className="h-3.5 w-3.5" />
-                      {c.mobile}
-                    </div>
-                    {c.customer_type && (
-                      <div className="mt-1 text-xs text-muted-foreground font-medium">
-                        {c.customer_type}
-                      </div>
-                    )}
-                  </div>
-                  {c.last_feedback && (
-                    <div
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wider uppercase flex items-center gap-1 ${getFeedbackColor(c.last_feedback)}`}
+      ) : filtered.length > 0 ? (
+        <>
+          {/* Desktop table */}
+          <Card className="border-none shadow-md hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                    <th className="text-left px-5 py-3">Customer</th>
+                    <th className="text-left px-4 py-3">Mobile</th>
+                    <th className="text-left px-4 py-3">Company</th>
+                    <th className="text-center px-4 py-3">Sites</th>
+                    <th className="text-left px-4 py-3">Site Stage</th>
+                    <th className="text-center px-4 py-3">Follow-ups</th>
+                    <th className="text-left px-4 py-3">Status</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((c) => (
+                    <tr
+                      key={c.id}
+                      onClick={() => navigate(`/customers/${c.id}`)}
+                      className="border-b last:border-0 hover:bg-muted/40 cursor-pointer transition-colors"
                     >
-                      <Tag className="h-3 w-3" />
-                      {c.last_feedback}
+                      <td className="px-5 py-3.5 font-medium">{c.name}</td>
+                      <td className="px-4 py-3.5 text-muted-foreground font-mono text-xs">{c.mobile}</td>
+                      <td className="px-4 py-3.5 text-muted-foreground text-xs">{c.company_name || "—"}</td>
+                      <td className="px-4 py-3.5 text-center font-semibold">{c.total_visits}</td>
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground">{c.current_site_stage || "—"}</td>
+                      <td className="px-4 py-3.5 text-center font-semibold">{c.total_followups}</td>
+                      <td className="px-4 py-3.5">{conversionBadge(c.conversion_status)}</td>
+                      <td className="px-4 py-3.5 text-muted-foreground"><ChevronRight className="h-4 w-4" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {filtered.map((c) => (
+              <Card
+                key={c.id}
+                onClick={() => navigate(`/customers/${c.id}`)}
+                className="border-none shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+              >
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-base truncate">{c.name}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3 shrink-0" />
+                        <span className="font-mono">{c.mobile}</span>
+                      </div>
+                      {c.company_name && (
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                          <Building2 className="h-3 w-3 shrink-0" />
+                          <span>{c.company_name}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {conversionBadge(c.conversion_status)}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground mt-1" />
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <div className="text-base font-bold">{c.total_visits}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Sites</div>
+                    </div>
+                    <div>
+                      <div className="text-base font-bold">{c.total_followups}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Follow-ups</div>
+                    </div>
+                    <div>
+                      <div className="text-base font-bold">{c.converted_count ?? 0}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Converted</div>
+                    </div>
+                  </div>
+                  {c.current_site_stage && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Stage: <span className="font-medium text-foreground">{c.current_site_stage}</span>
                     </div>
                   )}
-                </div>
-                {c.last_visit && (
-                  <div className="mt-4 pt-3 border-t flex items-center gap-2 text-xs text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    Last visited {format(new Date(c.last_visit), "MMM d, yyyy")}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : (
         <div className="text-center py-16 border rounded-xl border-dashed bg-card/30">
           <Users className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-          <h3 className="text-lg font-medium text-foreground">No customers found</h3>
-          <p className="text-muted-foreground text-sm">
-            Record a visit to see customers here.
+          <h3 className="text-lg font-medium">{search ? "No customers found" : "No customers yet"}</h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            {search ? "Try a different search term." : "Record a visit to see customers here."}
           </p>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import authRouter from "./auth";
 import brandsRouter from "./brands";
+import customersRouter from "./customers";
 import dashboardRouter from "./dashboard";
 import exportRouter from "./export";
 import followupsRouter from "./followups";
@@ -15,6 +16,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(usersRouter);
 router.use(brandsRouter);
+router.use(customersRouter);
 router.use(visitsRouter);
 router.use(followupsRouter);
 router.use(dashboardRouter);
