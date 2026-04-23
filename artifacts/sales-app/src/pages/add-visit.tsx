@@ -18,7 +18,7 @@ const CUSTOMER_TYPE_OPTIONS = [
   "Owner",
   "Purchase Manager",
   "Site Manager",
-  "Site Mistry",
+  "Site Mastery",
   "Technician",
   "Others",
 ];

@@ -33,7 +33,7 @@ const CUSTOMER_TYPE_VALUES = [
   "Owner",
   "Purchase Manager",
   "Site Manager",
-  "Site Mistry",
+  "Site Mastery",
   "Technician",
   "Others",
 ] as const;
