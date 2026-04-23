@@ -209,6 +209,7 @@ VISIT_PAYLOAD="{
   \"customer_name\": \"E2E Customer\",
   \"mobile_number\": \"$UNIQUE_MOBILE\",
   \"company_name\":  \"E2E Corp\",
+  \"customer_type\": \"Owner\",
   \"area\":          \"E2E Zone\",
   \"layout\":        \"E2E Block A\",
   \"location_link\": \"https://maps.google.com/?q=0,0\",
@@ -222,9 +223,22 @@ do_req POST /visits --auth "$AGENT_TOKEN" --json "$VISIT_PAYLOAD"
 assert_status "POST /visits — agent creates → 201"    201 "$RESP_STATUS"
 NEW_VISIT_ID=$(echo "$RESP_BODY" | jq -r '.data.visit.id // empty')
 [ -n "$NEW_VISIT_ID" ] && pass "New visit id: $NEW_VISIT_ID" || fail "Visit id returned" "$RESP_BODY"
-assert_eq "Visit feedback saved"   "$RESP_BODY" ".data.visit.feedback"   "Interested"
-assert_eq "Visit site_stage saved" "$RESP_BODY" ".data.visit.siteStage"  "Brickwork"
-assert_eq "Customer name created"  "$RESP_BODY" ".data.customer.name"    "E2E Customer"
+assert_eq "Visit feedback saved"      "$RESP_BODY" ".data.visit.feedback"      "Interested"
+assert_eq "Visit site_stage saved"    "$RESP_BODY" ".data.visit.siteStage"     "Brickwork"
+assert_eq "Visit customer_type saved" "$RESP_BODY" ".data.visit.customerType"  "Owner"
+assert_eq "Customer name created"     "$RESP_BODY" ".data.customer.name"       "E2E Customer"
+
+# customer_type missing → 400
+MOBILE2="7$(date +%s | cut -c2-10)"
+do_req POST /visits --auth "$AGENT_TOKEN" --json \
+  "{\"customer_name\":\"CT Test\",\"mobile_number\":\"$MOBILE2\",\"area\":\"Z\",\"location_link\":\"l\",\"site_stage\":\"Brickwork\",\"feedback\":\"Interested\",\"notes\":\"n\",\"image_url\":\"u\",\"brands_used\":[{\"brandId\":$FIRST_BRAND_ID}]}"
+assert_status "POST /visits — missing customer_type → 400" 400 "$RESP_STATUS"
+
+# Others without custom_customer_type → 400
+MOBILE3="6$(date +%s | cut -c2-10)"
+do_req POST /visits --auth "$AGENT_TOKEN" --json \
+  "{\"customer_name\":\"CT Test\",\"mobile_number\":\"$MOBILE3\",\"customer_type\":\"Others\",\"area\":\"Z\",\"location_link\":\"l\",\"site_stage\":\"Brickwork\",\"feedback\":\"Interested\",\"notes\":\"n\",\"image_url\":\"u\",\"brands_used\":[{\"brandId\":$FIRST_BRAND_ID}]}"
+assert_status "POST /visits — Others without custom_customer_type → 400" 400 "$RESP_STATUS"
 
 do_req POST /visits --auth "$AGENT_TOKEN" --json '{"customer_name":"X"}'
 assert_status "POST /visits — missing fields → 400"   400 "$RESP_STATUS"

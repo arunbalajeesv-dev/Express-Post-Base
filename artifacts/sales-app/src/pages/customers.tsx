@@ -21,10 +21,14 @@ export default function Customers() {
           const unique = new Map();
           visits.forEach((v: any) => {
             if (v.customer && !unique.has(v.customer.mobile)) {
+              const displayType = v.customerType === "Others"
+                ? (v.customCustomerType || "Others")
+                : (v.customerType || null);
               unique.set(v.customer.mobile, {
                 ...v.customer,
                 last_feedback: v.feedback,
                 last_visit: v.created_at,
+                customer_type: displayType,
               });
             }
           });
@@ -80,6 +84,11 @@ export default function Customers() {
                       <Phone className="h-3.5 w-3.5" />
                       {c.mobile}
                     </div>
+                    {c.customer_type && (
+                      <div className="mt-1 text-xs text-muted-foreground font-medium">
+                        {c.customer_type}
+                      </div>
+                    )}
                   </div>
                   {c.last_feedback && (
                     <div

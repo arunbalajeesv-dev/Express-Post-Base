@@ -29,23 +29,46 @@ const SITE_STAGE_VALUES = [
   "Finishing Stage",
 ] as const;
 
-const addVisitSchema = z.object({
-  customer_name:  z.string().trim().min(1, "Customer name is required"),
-  mobile_number:  z.string().trim().regex(mobileRegex, "Must be a valid 10-digit Indian mobile number starting with 6-9"),
-  company_name:   z.string().trim().optional(),
-  area:           z.string().trim().min(1, "Area is required"),
-  layout:         z.string().trim().optional(),
-  location_link:  z.string().trim().min(1, "Location link is required"),
-  site_stage:     z.enum(SITE_STAGE_VALUES, {
-    error: `Site stage must be one of: ${SITE_STAGE_VALUES.join(", ")}`,
-  }),
-  brands_used:    z.array(brandEntrySchema).min(1, "At least one brand must be selected"),
-  feedback:       z.enum(["Interested", "Not Interested", "Potential"], {
-    error: "Feedback must be Interested, Not Interested, or Potential",
-  }),
-  notes:          z.string().trim().min(1, "Notes are required"),
-  image_url:      z.string().trim().min(1, "Photo is required — please upload an image"),
-});
+const CUSTOMER_TYPE_VALUES = [
+  "Owner",
+  "Purchase Manager",
+  "Site Manager",
+  "Site Mistry",
+  "Technician",
+  "Others",
+] as const;
+
+const addVisitSchema = z
+  .object({
+    customer_name:        z.string().trim().min(1, "Customer name is required"),
+    mobile_number:        z.string().trim().regex(mobileRegex, "Must be a valid 10-digit Indian mobile number starting with 6-9"),
+    company_name:         z.string().trim().optional(),
+    customer_type:        z.enum(CUSTOMER_TYPE_VALUES, {
+      error: `Customer type must be one of: ${CUSTOMER_TYPE_VALUES.join(", ")}`,
+    }),
+    custom_customer_type: z.string().trim().optional(),
+    area:                 z.string().trim().min(1, "Area is required"),
+    layout:               z.string().trim().optional(),
+    location_link:        z.string().trim().min(1, "Location link is required"),
+    site_stage:           z.enum(SITE_STAGE_VALUES, {
+      error: `Site stage must be one of: ${SITE_STAGE_VALUES.join(", ")}`,
+    }),
+    brands_used:          z.array(brandEntrySchema).min(1, "At least one brand must be selected"),
+    feedback:             z.enum(["Interested", "Not Interested", "Potential"], {
+      error: "Feedback must be Interested, Not Interested, or Potential",
+    }),
+    notes:                z.string().trim().min(1, "Notes are required"),
+    image_url:            z.string().trim().min(1, "Photo is required — please upload an image"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.customer_type === "Others" && !data.custom_customer_type?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["custom_customer_type"],
+        message: "Please specify the customer type when 'Others' is selected",
+      });
+    }
+  });
 
 export const createVisit: RequestHandler = async (req, res) => {
   const payload = addVisitSchema.parse(req.body);
@@ -84,6 +107,10 @@ export const createVisit: RequestHandler = async (req, res) => {
       visitTime,
       notes: payload.notes,
       imageUrl: payload.image_url,
+      customerType: payload.customer_type,
+      customCustomerType: payload.customer_type === "Others"
+        ? (payload.custom_customer_type ?? null)
+        : null,
     },
     brandLinks,
   );

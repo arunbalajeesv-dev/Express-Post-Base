@@ -14,6 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, MapPin, CheckCircle2, Camera, X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const CUSTOMER_TYPE_OPTIONS = [
+  "Owner",
+  "Purchase Manager",
+  "Site Manager",
+  "Site Mistry",
+  "Technician",
+  "Others",
+];
+
 const AREA_OPTIONS = [
   "North Zone", "South Zone", "East Zone", "West Zone",
   "Central", "Suburban", "Industrial", "Other",
@@ -31,26 +40,31 @@ const SITE_STAGE_OPTIONS = [
 
 const visitSchema = z
   .object({
-    customer_name: z.string().trim().min(1, "Customer name is required"),
-    mobile_number: z.string().trim().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
-    company_name:  z.string().trim().optional(),
-    area:          z.string().min(1, "Area is required"),
-    area_other:    z.string().trim().optional(),
-    layout:        z.string().trim().optional(),
-    location_link: z.string().trim().min(1, "Location link is required"),
-    site_stage:    z.enum(
+    customer_name:        z.string().trim().min(1, "Customer name is required"),
+    mobile_number:        z.string().trim().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
+    company_name:         z.string().trim().optional(),
+    customer_type:        z.string().min(1, "Type of customer is required"),
+    custom_customer_type: z.string().trim().optional(),
+    area:                 z.string().min(1, "Area is required"),
+    area_other:           z.string().trim().optional(),
+    layout:               z.string().trim().optional(),
+    location_link:        z.string().trim().min(1, "Location link is required"),
+    site_stage:           z.enum(
       ["New Site/ Foundation", "Brickwork", "Plastering", "Roofing", "Painting/ Tiles", "Plumbing/ Electrical", "Finishing Stage"],
       { errorMap: () => ({ message: "Please select a site stage" }) }
     ),
-    feedback:      z.enum(["Interested", "Not Interested", "Potential"], {
+    feedback:             z.enum(["Interested", "Not Interested", "Potential"], {
       errorMap: () => ({ message: "Please select a feedback option" }),
     }),
-    notes:         z.string().trim().min(1, "Notes are required"),
-    image_url:     z.string().min(1, "Photo is required — please upload a site image"),
+    notes:                z.string().trim().min(1, "Notes are required"),
+    image_url:            z.string().min(1, "Photo is required — please upload a site image"),
   })
   .superRefine((data, ctx) => {
     if (data.area === "Other" && !data.area_other?.trim()) {
       ctx.addIssue({ code: "custom", path: ["area_other"], message: "Please specify the area" });
+    }
+    if (data.customer_type === "Others" && !data.custom_customer_type?.trim()) {
+      ctx.addIssue({ code: "custom", path: ["custom_customer_type"], message: "Please specify the customer type" });
     }
   });
 
@@ -80,21 +94,24 @@ export default function AddVisit() {
   const form = useForm<VisitFormValues>({
     resolver: zodResolver(visitSchema),
     defaultValues: {
-      customer_name: "",
-      mobile_number: "",
-      company_name: "",
-      area: "",
-      area_other: "",
-      layout: "",
-      location_link: "",
-      site_stage: undefined,
-      feedback: undefined,
-      notes: "",
-      image_url: "",
+      customer_name:        "",
+      mobile_number:        "",
+      company_name:         "",
+      customer_type:        "",
+      custom_customer_type: "",
+      area:                 "",
+      area_other:           "",
+      layout:               "",
+      location_link:        "",
+      site_stage:           undefined,
+      feedback:             undefined,
+      notes:                "",
+      image_url:            "",
     },
   });
 
-  const watchArea = form.watch("area");
+  const watchArea         = form.watch("area");
+  const watchCustomerType = form.watch("customer_type");
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -160,20 +177,22 @@ export default function AddVisit() {
     }
 
     const body = {
-      customer_name:  data.customer_name,
-      mobile_number:  data.mobile_number,
-      company_name:   data.company_name,
-      area:           data.area === "Other" ? data.area_other! : data.area,
-      layout:         data.layout || undefined,
-      location_link:  data.location_link,
-      site_stage:     data.site_stage,
-      brands_used:    [
+      customer_name:        data.customer_name,
+      mobile_number:        data.mobile_number,
+      company_name:         data.company_name,
+      customer_type:        data.customer_type,
+      custom_customer_type: data.customer_type === "Others" ? data.custom_customer_type : undefined,
+      area:                 data.area === "Other" ? data.area_other! : data.area,
+      layout:               data.layout || undefined,
+      location_link:        data.location_link,
+      site_stage:           data.site_stage,
+      brands_used:          [
         ...selectedBrandIds.map((id) => ({ brandId: id })),
         ...customBrands.map((name) => ({ customBrandName: name })),
       ],
-      feedback:       data.feedback,
-      notes:          data.notes,
-      image_url:      data.image_url,
+      feedback:             data.feedback,
+      notes:                data.notes,
+      image_url:            data.image_url,
     };
 
     setSubmitting(true);
@@ -239,6 +258,31 @@ export default function AddVisit() {
                   <FormMessage />
                 </FormItem>
               )} />
+
+              <FormField control={form.control} name="customer_type" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Type of Customer *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-11"><SelectValue placeholder="Select customer type" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CUSTOMER_TYPE_OPTIONS.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {watchCustomerType === "Others" && (
+                <FormField control={form.control} name="custom_customer_type" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Specify Customer Type *</FormLabel>
+                    <FormControl><Input placeholder="e.g. Architect, Dealer…" {...field} className="h-11" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
 
               <FormField control={form.control} name="mobile_number" render={({ field }) => (
                 <FormItem>

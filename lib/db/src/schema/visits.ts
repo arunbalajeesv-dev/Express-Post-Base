@@ -17,6 +17,8 @@ export const visitsTable = pgTable("visits", {
   visitTime: time("visit_time").notNull(),
   notes: text("notes").notNull(),
   imageUrl: text("image_url").notNull(),
+  customerType: text("customer_type").notNull().default("Owner"),
+  customCustomerType: text("custom_customer_type"),
 });
 
 export const selectVisitSchema = createSelectSchema(visitsTable);

@@ -20,6 +20,8 @@ export type AddVisitData = {
   visitTime: string;
   notes: string;
   imageUrl: string;
+  customerType: string;
+  customCustomerType?: string | null;
 };
 
 export async function createVisitWithBrands(
@@ -63,6 +65,8 @@ export async function listVisits(userId?: number) {
       visitTime: visitsTable.visitTime,
       imageUrl: visitsTable.imageUrl,
       notes: visitsTable.notes,
+      customerType: visitsTable.customerType,
+      customCustomerType: visitsTable.customCustomerType,
       customer: {
         id: customersTable.id,
         name: customersTable.name,
