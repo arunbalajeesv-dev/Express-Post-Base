@@ -1,0 +1,537 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Sales Tracker API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: visits
+    description: Site visits
+  - name: followups
+    description: Follow-up scheduling
+  - name: dashboard
+    description: Manager dashboard analytics
+  - name: export
+    description: Data exports
+paths:
+  /login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login and get JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+  /create-user:
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user (manager only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCreatedResponse"
+        "400":
+          description: Validation failed
+        "403":
+          description: Manager access required
+        "409":
+          description: User ID already exists
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: Users returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+  /visits:
+    post:
+      operationId: createVisit
+      tags: [visits]
+      summary: Record a site visit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVisitInput"
+      responses:
+        "201":
+          description: Visit recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateVisitResponse"
+        "400":
+          description: Validation failed
+  /add-followup:
+    post:
+      operationId: addFollowup
+      tags: [followups]
+      summary: Schedule a follow-up for a visit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddFollowupInput"
+      responses:
+        "201":
+          description: Follow-up scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowupResponse"
+        "400":
+          description: Validation failed
+        "404":
+          description: Visit not found
+  /pending-followups:
+    get:
+      operationId: getPendingFollowups
+      tags: [followups]
+      summary: Get all pending follow-ups
+      responses:
+        "200":
+          description: Pending follow-ups returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowupListResponse"
+  /overdue-followups:
+    get:
+      operationId: getOverdueFollowups
+      tags: [followups]
+      summary: Get overdue follow-ups and mark them as Missed
+      responses:
+        "200":
+          description: Overdue follow-ups returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowupListResponse"
+  /dashboard/visits-per-user:
+    get:
+      operationId: getVisitsPerUser
+      tags: [dashboard]
+      summary: Visits per user for a period
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [daily, weekly]
+      responses:
+        "200":
+          description: Visits per user returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitsPerUserResponse"
+  /dashboard/total-visits:
+    get:
+      operationId: getTotalVisits
+      tags: [dashboard]
+      summary: Total visit counts
+      responses:
+        "200":
+          description: Totals returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotalVisitsResponse"
+  /dashboard/feedback-summary:
+    get:
+      operationId: getFeedbackSummary
+      tags: [dashboard]
+      summary: Feedback breakdown
+      responses:
+        "200":
+          description: Feedback summary returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackSummaryResponse"
+  /dashboard/inactive-users:
+    get:
+      operationId: getInactiveUsers
+      tags: [dashboard]
+      summary: Users with no visits today
+      responses:
+        "200":
+          description: Inactive users returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InactiveUsersResponse"
+  /export/excel:
+    get:
+      operationId: exportExcel
+      tags: [export]
+      summary: Export visits to Excel
+      responses:
+        "200":
+          description: Excel file download
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+  /export/pdf:
+    get:
+      operationId: exportPdf
+      tags: [export]
+      summary: Export visits to PDF
+      responses:
+        "200":
+          description: PDF file download
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+components:
+  schemas:
+    LoginInput:
+      type: object
+      properties:
+        user_id:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+      required: [user_id, password]
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        userId:
+          type: string
+        role:
+          type: string
+        mobile:
+          type: string
+      required: [id, name, userId, role, mobile]
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required: [message, token, user]
+    CreateUserInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        mobile:
+          type: string
+          minLength: 1
+        role:
+          type: string
+          enum: [sales, manager]
+        userId:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+      required: [name, mobile, role, userId, password]
+    SafeUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        mobile:
+          type: string
+        role:
+          type: string
+        userId:
+          type: string
+      required: [id, name, mobile, role, userId]
+    UserCreatedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/SafeUser"
+      required: [message, data]
+    UserListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafeUser"
+      required: [data]
+    CreateVisitInput:
+      type: object
+      properties:
+        customer_name:
+          type: string
+          minLength: 1
+        mobile_number:
+          type: string
+          minLength: 10
+        company_name:
+          type: string
+        area:
+          type: string
+        site_stage:
+          type: string
+        feedback:
+          type: string
+          enum: [Interested, Not Interested, Potential]
+        notes:
+          type: string
+        image_url:
+          type: string
+          minLength: 1
+      required: [customer_name, mobile_number, feedback, image_url]
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        mobile:
+          type: string
+        companyName:
+          type: string
+      required: [id, name, mobile]
+    Visit:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        customerId:
+          type: integer
+        area:
+          type: string
+        siteStage:
+          type: string
+        feedback:
+          type: string
+        visitDate:
+          type: string
+        visitTime:
+          type: string
+        notes:
+          type: string
+        imageUrl:
+          type: string
+      required: [id, userId, customerId, visitDate, visitTime]
+    CreateVisitResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            visit:
+              $ref: "#/components/schemas/Visit"
+            customer:
+              $ref: "#/components/schemas/Customer"
+          required: [visit, customer]
+      required: [message, data]
+    AddFollowupInput:
+      type: object
+      properties:
+        visit_id:
+          type: integer
+          minimum: 1
+        followup_date:
+          type: string
+          format: date
+        notes:
+          type: string
+      required: [visit_id, followup_date]
+    Followup:
+      type: object
+      properties:
+        id:
+          type: integer
+        followupDate:
+          type: string
+        status:
+          type: string
+          enum: [Pending, Completed, Missed]
+        notes:
+          type: string
+        visit:
+          type: object
+          properties:
+            id:
+              type: integer
+            area:
+              type: string
+            siteStage:
+              type: string
+            feedback:
+              type: string
+            visitDate:
+              type: string
+          required: [id]
+        customer:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            mobile:
+              type: string
+            companyName:
+              type: string
+          required: [id, name, mobile]
+        assignedTo:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            userId:
+              type: string
+          required: [id, name, userId]
+      required: [id, followupDate, status]
+    FollowupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/Followup"
+      required: [message, data]
+    FollowupListResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        count:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Followup"
+      required: [message, count, data]
+    UserVisitCount:
+      type: object
+      properties:
+        userId:
+          type: integer
+        userName:
+          type: string
+        userLoginId:
+          type: string
+        visitCount:
+          type: integer
+      required: [userId, userName, userLoginId, visitCount]
+    VisitsPerUserResponse:
+      type: object
+      properties:
+        period:
+          type: string
+        data:
+          type: object
+          properties:
+            date:
+              type: string
+            weekStart:
+              type: string
+            users:
+              type: array
+              items:
+                $ref: "#/components/schemas/UserVisitCount"
+          required: [users]
+      required: [period, data]
+    TotalVisitsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            total:
+              type: integer
+            today:
+              type: integer
+            thisWeek:
+              type: integer
+          required: [total, today, thisWeek]
+      required: [data]
+    FeedbackSummaryResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            Interested:
+              type: integer
+            "Not Interested":
+              type: integer
+            Potential:
+              type: integer
+          required: [Interested, Potential]
+      required: [data]
+    InactiveUsersResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            date:
+              type: string
+            inactiveUsers:
+              type: array
+              items:
+                $ref: "#/components/schemas/SafeUser"
+          required: [date, inactiveUsers]
+      required: [data]
