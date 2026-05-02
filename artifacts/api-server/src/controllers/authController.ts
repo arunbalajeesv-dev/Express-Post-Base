@@ -12,7 +12,13 @@ const loginSchema = z.object({
 export const login: RequestHandler = async (req, res) => {
   const { user_id, password } = loginSchema.parse(req.body);
 
-  const user = await userModel.findByUserId(user_id);
+  let user;
+  try {
+    user = await userModel.findByUserId(user_id);
+  } catch (err) {
+    res.status(500).json({ message: "DB error", detail: String(err) });
+    return;
+  }
 
   if (!user) {
     res.status(401).json({ message: "Invalid credentials" });
