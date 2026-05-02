@@ -15,8 +15,8 @@ export const login: RequestHandler = async (req, res) => {
   let user;
   try {
     user = await userModel.findByUserId(user_id);
-  } catch (err) {
-    res.status(500).json({ message: "DB error", detail: String(err) });
+  } catch (err: any) {
+    res.status(500).json({ message: "DB error", detail: String(err), cause: String(err?.cause ?? err?.message ?? "") });
     return;
   }
 
