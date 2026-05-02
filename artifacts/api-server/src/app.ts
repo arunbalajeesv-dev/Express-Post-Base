@@ -1,0 +1,52 @@
+import express, { type Express } from "express";
+import cors from "cors";
+import pinoHttp from "pino-http";
+import path from "path";
+import router from "./routes";
+import { logger } from "./lib/logger";
+import { errorHandler } from "./middlewares/errorHandler";
+import { notFound } from "./middlewares/notFound";
+
+const app: Express = express();
+
+app.use(
+  pinoHttp({
+    logger,
+    serializers: {
+      req(req) {
+        return {
+          id: req.id,
+          method: req.method,
+          url: req.url?.split("?")[0],
+        };
+      },
+      res(res) {
+        return {
+          statusCode: res.statusCode,
+        };
+      },
+    },
+  }),
+);
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded images
+app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+app.use("/api", router);
+
+if (process.env.NODE_ENV === "production") {
+  const frontendDist = path.join(process.cwd(), "artifacts/sales-app/dist/public");
+  app.use(express.static(frontendDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+} else {
+  app.use(notFound);
+}
+
+app.use(errorHandler);
+
+export default app;

@@ -1,0 +1,90 @@
+Fix my Sales Tracking App (Node.js + PostgreSQL + React frontend) to ensure ALL required fields are properly captured, validated, and stored.
+
+🚨 CURRENT ISSUES:
+Missing fields in Add Visit UI:
+company_name
+area
+layout
+location_link
+site_stage
+brands_used
+notes
+image (photo URL should be mandatory)
+Database is storing NULL values for:
+area
+site_stage
+notes
+Image upload is optional (should be mandatory)
+✅ REQUIREMENTS
+1. UPDATE FRONTEND (Add Visit Screen)
+
+Ensure the form includes ALL fields:
+
+Customer Name (required)
+Mobile Number (required)
+Company Name (required)
+Area (dropdown + “Other” with text input, required)
+Layout (text, required)
+Location Link (required)
+Site Stage (dropdown, required)
+Brands Used (multi-select, required)
+Feedback (Interested / Not Interested / Potential, required)
+Notes (text area, required)
+Image Upload (REQUIRED - must not allow submission without image)
+2. FRONTEND VALIDATION
+Disable Submit button if any required field is empty
+Show clear error messages under each field
+If “Other” is selected → text input becomes mandatory
+3. BACKEND VALIDATION (VERY IMPORTANT)
+
+Update Add Visit API:
+
+Reject request if any of these fields are missing:
+company_name
+area
+layout
+location_link
+site_stage
+feedback
+notes
+image_url
+Return proper error message:
+"All required fields must be filled"
+4. DATABASE CONSTRAINTS (CRITICAL)
+
+Update visits table:
+
+Set NOT NULL constraint on:
+company_name
+area
+layout
+location_link
+site_stage
+feedback
+notes
+image_url
+5. FIX EXISTING BAD DATA
+Update existing NULL values:
+Replace NULL with 'UNKNOWN' or 'Not Provided'
+OR
+Delete incomplete records (based on best practice)
+6. IMAGE FIELD RULE
+Image must be mandatory
+Reject API request if image_url is missing or empty
+7. RESPONSE FORMAT
+
+Return:
+
+Updated frontend code
+Updated backend validation logic
+SQL query to alter table (ADD NOT NULL constraints)
+Example API request/response
+8. GOAL
+
+Ensure:
+
+No incomplete visit can be saved
+No NULL values in critical fields
+App enforces strict discipline for sales team usage
+
+Make the solution production-ready and cleanly structured.
