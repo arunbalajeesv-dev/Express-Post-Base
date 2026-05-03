@@ -35,17 +35,29 @@ router.post("/upload", authenticate, upload.single("image"), async (req, res) =>
   const ext = path.extname(req.file.originalname) || ".jpg";
   const filename = `${randomUUID()}${ext}`;
 
-  const response = await fetch(
-    `${supabaseUrl}/storage/v1/object/visit-images/${filename}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${supabaseKey}`,
-        "Content-Type": req.file.mimetype,
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  let response: Response;
+  try {
+    response = await fetch(
+      `${supabaseUrl}/storage/v1/object/visit-images/${filename}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          "Content-Type": req.file.mimetype,
+        },
+        body: req.file.buffer,
+        signal: controller.signal,
       },
-      body: req.file.buffer,
-    },
-  );
+    );
+  } catch (err) {
+    res.status(500).json({ message: "Upload timed out or network error", detail: String(err) });
+    return;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const detail = await response.text();
