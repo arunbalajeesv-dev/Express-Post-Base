@@ -19,8 +19,8 @@ router.use(brandsRouter);
 router.use(customersRouter);
 router.use(visitsRouter);
 router.use(followupsRouter);
+router.use(uploadRouter);
 router.use(dashboardRouter);
 router.use(exportRouter);
-router.use(uploadRouter);
 
 export default router;
