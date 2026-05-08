@@ -1,14 +1,14 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { Home, Phone, ListTodo, Users2, LogOut } from "lucide-react";
+import { Home, LogOut, PhoneCall, CalendarClock, BookUser } from "lucide-react";
 import { Button } from "./ui/button";
 
 const NAV_ITEMS = [
-  { href: "/home",      label: "Home",       icon: Home },
-  { href: "/add-visit", label: "Add Visit",   icon: Phone },
-  { href: "/followups", label: "Follow-ups", icon: ListTodo },
-  { href: "/customers", label: "Pipeline",   icon: Users2 },
+  { href: "/home",       label: "Home",      icon: Home },
+  { href: "/calls/new",  label: "Calls",     icon: PhoneCall },
+  { href: "/schedule",   label: "Schedule",  icon: CalendarClock },
+  { href: "/customers",  label: "Customers", icon: BookUser },
 ];
 
 export function AgentLayout({ children }: { children: ReactNode }) {

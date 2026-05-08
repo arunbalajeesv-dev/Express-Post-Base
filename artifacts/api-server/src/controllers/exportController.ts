@@ -14,7 +14,6 @@ const COLUMNS = [
   { header: "Site Stage",     key: "siteStage",       width: 16 },
   { header: "Feedback",       key: "feedback",        width: 16 },
   { header: "Sales Person",   key: "salesPerson",     width: 18 },
-  { header: "Follow-up",      key: "followupStatus",  width: 14 },
   { header: "Invoice No.",    key: "invoiceNumber",   width: 16 },
   { header: "Sale Amount",    key: "saleAmount",      width: 14 },
   { header: "Notes",          key: "notes",           width: 30 },
@@ -52,7 +51,6 @@ export const exportExcel: RequestHandler = async (_req, res) => {
       siteStage: row.siteStage ?? "",
       feedback: row.feedback ?? "",
       salesPerson: row.salesPerson ?? "",
-      followupStatus: row.followupStatus ?? "",
       invoiceNumber: row.invoiceNumber ?? "",
       saleAmount: row.saleAmount ?? "",
       notes: row.notes ?? "",
@@ -72,7 +70,7 @@ export const exportExcel: RequestHandler = async (_req, res) => {
     };
   }
 
-  sheet.autoFilter = { from: "A1", to: "N1" };
+  sheet.autoFilter = { from: "A1", to: "M1" };
 
   const filename = `visits_${new Date().toISOString().slice(0, 10)}.xlsx`;
   res.setHeader(
@@ -107,7 +105,7 @@ export const exportPdf: RequestHandler = async (_req, res) => {
     });
   doc.moveDown(1);
 
-  const colWidths = [30, 55, 45, 100, 75, 100, 60, 65, 65, 85, 65, 75, 60];
+  const colWidths = [30, 55, 45, 110, 80, 110, 65, 70, 70, 95, 80, 65];
   const headers = [
     "ID",
     "Date",
@@ -119,7 +117,6 @@ export const exportPdf: RequestHandler = async (_req, res) => {
     "Stage",
     "Feedback",
     "Sales Person",
-    "Follow-up",
     "Invoice No.",
     "Sale Amt.",
   ];
@@ -190,7 +187,6 @@ export const exportPdf: RequestHandler = async (_req, res) => {
         row.siteStage ?? "",
         row.feedback ?? "",
         row.salesPerson ?? "",
-        row.followupStatus ?? "",
         row.invoiceNumber ?? "",
         row.saleAmount ?? "",
       ],

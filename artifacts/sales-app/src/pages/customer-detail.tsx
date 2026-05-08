@@ -16,10 +16,44 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import {
-  ArrowLeft, Phone, Building2, User, Tag, MapPin, Calendar,
-  Plus, Pencil, RefreshCw, DollarSign, Loader2, CheckCircle2, Clock, TrendingUp, Package
+  ArrowLeft, Phone, Building2, User, Tag, MapPin,
+  Plus, Pencil, RefreshCw, DollarSign, Loader2, TrendingUp, Package,
+  PhoneCall, FileText, IndianRupee,
 } from "lucide-react";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type QuotationRecord = {
+  id: string;
+  quotation_number: string;
+  quotation_date: string;
+  quotation_value: number;
+  created_at: string;
+};
+
+type CallLogRecord = {
+  id: number;
+  call_date: string;
+  call_status: string;
+  call_summary: string;
+  quotation_number: string | null;
+  invoice_number: string | null;
+  sale_value: number | null;
+  next_schedule_date: string | null;
+  agent: { name: string } | null;
+};
+
+const CALL_STATUS_META: Record<string, { dot: string; badge: string }> = {
+  "Connected":          { dot: "bg-blue-500",   badge: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
+  "Not Connected":      { dot: "bg-slate-400",  badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  "Callback Requested": { dot: "bg-orange-500", badge: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300" },
+  "Quotation Sent":     { dot: "bg-amber-500",  badge: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  "Converted":          { dot: "bg-green-500",  badge: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
+  "Not Interested":     { dot: "bg-red-500",    badge: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
+};
+
 
 const authFetch = (path: string, opts?: RequestInit) => {
   const token = localStorage.getItem("auth_token");
@@ -32,10 +66,6 @@ const authFetch = (path: string, opts?: RequestInit) => {
 const SITE_STAGE_OPTIONS = [
   "New Site/ Foundation", "Brickwork", "Plastering",
   "Roofing", "Painting/ Tiles", "Plumbing/ Electrical", "Finishing Stage",
-];
-
-const CUSTOMER_TYPE_OPTIONS = [
-  "Owner", "Purchase Manager", "Site Manager", "Site Mastery", "Technician", "Others",
 ];
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
@@ -56,14 +86,6 @@ function feedbackBadge(fb: string) {
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${cls}`}>{fb}</span>;
 }
 
-function statusBadge(status: string) {
-  const cls =
-    status === "Converted"  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-    status === "Completed"  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${cls}`}>{status}</span>;
-}
-
 function fmtDate(d: string | null | undefined) {
   if (!d) return "—";
   try { return format(new Date(d), "MMM d, yyyy"); } catch { return d; }
@@ -81,12 +103,11 @@ export default function CustomerDetail() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const [modal, setModal] = useState<"addFollowup" | "editCustomer" | "updateStage" | "markConversion" | "editFollowup" | null>(null);
-  const [editingFollowup, setEditingFollowup] = useState<any>(null);
+  const [modal, setModal] = useState<"editCustomer" | "updateStage" | "markConversion" | "addQuotation" | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [callStatusFilter, setCallStatusFilter] = useState<string>("all");
 
   const { user } = useAuth();
-  const isManager = user?.role === "Manager";
 
   const { data, isLoading } = useQuery({
     queryKey: ["customer", id],
@@ -94,17 +115,47 @@ export default function CustomerDetail() {
     enabled: !!id,
   });
 
-  const detail = data?.data;
-  const customer = detail?.customer;
-  const stats    = detail?.stats;
-  const visits   = detail?.visits   ?? [];
-  const followups = detail?.followups ?? [];
-  const conversions = detail?.conversions ?? [];
-  const brands    = detail?.brands   ?? [];
+  const { data: callHistory = [] } = useQuery<CallLogRecord[]>({
+    queryKey: ["customer-call-logs", id],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("call_logs")
+        .select("id, call_date, call_status, call_summary, quotation_number, invoice_number, sale_value, next_schedule_date, agent:users!agent_id(name)")
+        .eq("customer_id", Number(id))
+        .order("call_date", { ascending: false });
+      if (error) return [];
+      return (rows ?? []) as unknown as CallLogRecord[];
+    },
+    enabled: !!id,
+  });
+
+  const {
+    data: quotations = [],
+    refetch: refetchQuotations,
+    error: quotationsError,
+  } = useQuery<QuotationRecord[]>({
+    queryKey: ["customer-quotations", id],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("quotations")
+        .select("id, quotation_number, quotation_date, quotation_value, created_at")
+        .eq("customer_id", Number(id))
+        .order("quotation_date", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (rows ?? []) as QuotationRecord[];
+    },
+    enabled: !!id,
+    retry: 1,
+  });
+
+  const detail    = data?.data;
+  const customer  = detail?.customer;
+  const stats     = detail?.stats;
+  const visits    = detail?.visits  ?? [];
+  const brands    = detail?.brands  ?? [];
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["customer", id] });
-
-  const close = () => { setModal(null); setEditingFollowup(null); };
+  const close = () => setModal(null);
 
   const handleApiCall = async (path: string, method: string, body: any, successMsg: string) => {
     setSubmitting(true);
@@ -124,21 +175,13 @@ export default function CustomerDetail() {
 
   // ── Forms ────────────────────────────────────────────────────────────────
 
-  const addFollowupForm = useForm({
-    resolver: zodResolver(z.object({
-      visit_id:      z.string().min(1, "Please select an agent"),
-      followup_date: z.string().min(1, "Date is required"),
-      notes:         z.string().trim().min(1, "Notes are required"),
-    })),
-    defaultValues: { visit_id: "", followup_date: "", notes: "" },
-  });
-
   const editCustomerForm = useForm({
     resolver: zodResolver(z.object({
       name:        z.string().trim().min(1, "Name is required"),
+      mobile:      z.string().trim().min(1, "Phone number is required"),
       companyName: z.string().trim().optional(),
     })),
-    defaultValues: { name: customer?.name ?? "", companyName: customer?.company_name ?? "" },
+    defaultValues: { name: customer?.name ?? "", mobile: customer?.mobile ?? "", companyName: customer?.company_name ?? "" },
   });
 
   const updateStageForm = useForm({
@@ -150,34 +193,23 @@ export default function CustomerDetail() {
 
   const markConversionForm = useForm({
     resolver: zodResolver(z.object({
-      followup_id:    z.string().min(1, "Select a follow-up"),
       sale_amount:    z.string().trim().min(1, "Sale amount is required"),
       invoice_number: z.string().trim().min(1, "Invoice number is required"),
     })),
-    defaultValues: { followup_id: "", sale_amount: "", invoice_number: "" },
+    defaultValues: { sale_amount: "", invoice_number: "" },
   });
 
-  const editFollowupForm = useForm({
+  const addQuotationForm = useForm({
     resolver: zodResolver(z.object({
-      followup_date: z.string().min(1, "Date is required"),
-      notes:         z.string().trim().optional(),
-      status:        z.enum(["Pending", "Completed"]),
+      quotation_number: z.string().trim().min(1, "Quotation number is required"),
+      quotation_date:   z.string().min(1, "Date is required"),
+      quotation_value:  z.string().trim().min(1, "Value is required"),
     })),
-    defaultValues: { followup_date: "", notes: "", status: "Pending" as const },
+    defaultValues: { quotation_number: "", quotation_date: "", quotation_value: "" },
   });
-
-  const openEditFollowup = (fu: any) => {
-    setEditingFollowup(fu);
-    editFollowupForm.reset({
-      followup_date: fu.followup_date ?? "",
-      notes:         fu.notes ?? "",
-      status:        fu.status === "Converted" ? "Completed" : fu.status,
-    });
-    setModal("editFollowup");
-  };
 
   const openEditCustomer = () => {
-    editCustomerForm.reset({ name: customer?.name ?? "", companyName: customer?.company_name ?? "" });
+    editCustomerForm.reset({ name: customer?.name ?? "", mobile: customer?.mobile ?? "", companyName: customer?.company_name ?? "" });
     setModal("editCustomer");
   };
 
@@ -188,13 +220,8 @@ export default function CustomerDetail() {
 
   // ── Submissions ──────────────────────────────────────────────────────────
 
-  const onAddFollowup = addFollowupForm.handleSubmit(async (d) => {
-    await handleApiCall("/add-followup", "POST", { visit_id: Number(d.visit_id), followup_date: d.followup_date, notes: d.notes }, "Follow-up added");
-    addFollowupForm.reset();
-  });
-
   const onEditCustomer = editCustomerForm.handleSubmit(async (d) => {
-    await handleApiCall(`/customers/${id}`, "PUT", { name: d.name, companyName: d.companyName || null }, "Customer updated");
+    await handleApiCall(`/customers/${id}`, "PUT", { name: d.name, mobile: d.mobile, companyName: d.companyName || null }, "Customer updated");
   });
 
   const onUpdateStage = updateStageForm.handleSubmit(async (d) => {
@@ -204,27 +231,52 @@ export default function CustomerDetail() {
   });
 
   const onMarkConversion = markConversionForm.handleSubmit(async (d) => {
-    await handleApiCall(`/followups/${d.followup_id}`, "PUT", {
-      status: "Converted",
-      sale_amount: d.sale_amount,
-      invoice_number: d.invoice_number,
-    }, "Conversion recorded");
-    markConversionForm.reset();
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("call_logs").insert({
+        customer_id:      parseInt(id!),
+        agent_id:         parseInt(user!.id),
+        call_date:        new Date().toISOString(),
+        call_status:      "Converted",
+        call_summary:     `Sale recorded — Invoice ${d.invoice_number}`,
+        converted_to_sale: true,
+        sale_value:       parseFloat(d.sale_amount),
+        invoice_number:   d.invoice_number,
+      });
+      if (error) throw new Error(error.message);
+      toast({ title: "Sale recorded" });
+      markConversionForm.reset();
+      qc.invalidateQueries({ queryKey: ["customer-call-logs", id] });
+      invalidate();
+      close();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setSubmitting(false);
+    }
   });
 
-  const onEditFollowup = editFollowupForm.handleSubmit(async (d) => {
-    await handleApiCall(`/followups/${editingFollowup.id}`, "PUT", {
-      status:        d.status,
-      followup_date: d.followup_date,
-      notes:         d.notes,
-    }, "Follow-up updated");
-    editFollowupForm.reset();
+  const onAddQuotation = addQuotationForm.handleSubmit(async (d) => {
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("quotations").insert({
+        customer_id:      parseInt(id!),
+        quotation_number: d.quotation_number,
+        quotation_date:   d.quotation_date,
+        quotation_value:  parseFloat(d.quotation_value),
+        created_by:       parseInt(user!.id),
+      });
+      if (error) throw new Error(error.message);
+      toast({ title: "Quotation added" });
+      addQuotationForm.reset();
+      refetchQuotations();
+      close();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setSubmitting(false);
+    }
   });
-
-  const pendingFollowups = followups.filter((f: any) => f.status !== "Converted");
-  const today = new Date().toISOString().slice(0, 10);
-  const upcoming = followups.filter((f: any) => f.status !== "Converted" && f.followup_date >= today);
-  const nextFollowup = upcoming.sort((a: any, b: any) => a.followup_date.localeCompare(b.followup_date))[0];
 
   if (isLoading) return (
     <div className="p-4 space-y-4 max-w-3xl mx-auto">
@@ -254,41 +306,31 @@ export default function CustomerDetail() {
       {/* ── A. Customer Summary ── */}
       <Card className="border-none shadow-md">
         <CardContent className="p-5 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold truncate">{customer.name}</h1>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{customer.mobile}</span>
-                {customer.company_name && <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" />{customer.company_name}</span>}
-                {stats?.customerType && <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{stats.customerType}</span>}
-              </div>
-              {stats?.currentSiteStage && (
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" />
-                  Current stage: <span className="font-medium text-foreground ml-1">{stats.currentSiteStage}</span>
-                </div>
-              )}
-              {nextFollowup && (
-                <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                  <Calendar className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-muted-foreground">Next follow-up:</span>
-                  <span className="font-medium text-primary">{fmtDate(nextFollowup.followup_date)}</span>
-                </div>
-              )}
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold truncate">{customer.name}</h1>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{customer.mobile}</span>
+              {customer.company_name && <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" />{customer.company_name}</span>}
+              {stats?.customerType && <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{stats.customerType}</span>}
             </div>
+            {stats?.currentSiteStage && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                Current stage: <span className="font-medium text-foreground ml-1">{stats.currentSiteStage}</span>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <StatCard label="Visits"      value={stats?.totalVisits ?? 0} />
-            <StatCard label="Follow-ups"  value={stats?.totalFollowups ?? 0} />
             <StatCard label="Converted"   value={stats?.totalConversions ?? 0} />
             <StatCard label="Sales Value" value={fmtCurrency(stats?.totalSalesValue)} />
           </div>
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button size="sm" onClick={() => { addFollowupForm.reset({ visit_id: isManager ? "" : String(visits[0]?.id ?? ""), followup_date: "", notes: "" }); setModal("addFollowup"); }}>
-              <Plus className="h-4 w-4 mr-1" /> Add Follow-up
+            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => navigate(`/calls/new?customerId=${id}`)}>
+              <PhoneCall className="h-4 w-4" /> Make a Call
             </Button>
             <Button size="sm" variant="outline" onClick={openEditCustomer}>
               <Pencil className="h-4 w-4 mr-1" /> Edit Customer
@@ -298,9 +340,9 @@ export default function CustomerDetail() {
                 <RefreshCw className="h-4 w-4 mr-1" /> Update Stage
               </Button>
             )}
-            {pendingFollowups.length > 0 && (
+            {visits.length > 0 && (
               <Button size="sm" variant="outline" className="border-green-500/50 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={() => { markConversionForm.reset(); setModal("markConversion"); }}>
-                <DollarSign className="h-4 w-4 mr-1" /> Mark Conversion
+                <DollarSign className="h-4 w-4 mr-1" /> Add Sale
               </Button>
             )}
           </div>
@@ -353,37 +395,175 @@ export default function CustomerDetail() {
         </CardContent>
       </Card>
 
-      {/* ── C. Follow-ups ── */}
+      {/* ── C. Call History ── */}
       <Card className="border-none shadow-md">
         <CardContent className="p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <Clock className="h-4 w-4" /> Follow-ups
-          </h2>
-          {followups.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No follow-ups yet.</p>
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <PhoneCall className="h-4 w-4" /> Call History
+              {callHistory.length > 0 && (
+                <span className="bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {callHistory.length}
+                </span>
+              )}
+            </h2>
+            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => navigate(`/calls/new?customerId=${id}`)}>
+              <PhoneCall className="h-3.5 w-3.5 mr-1" /> Log Call
+            </Button>
+          </div>
+
+          {/* Stats row */}
+          {callHistory.length > 0 && (
+            <div className="flex gap-3 mb-4 text-center">
+              <div className="flex-1 rounded-lg bg-muted/40 p-2">
+                <div className="text-base font-bold">{callHistory.length}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</div>
+              </div>
+              <div className="flex-1 rounded-lg bg-muted/40 p-2">
+                <div className="text-base font-bold text-blue-600">{callHistory.filter((c) => c.call_status === "Connected").length}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Connected</div>
+              </div>
+              <div className="flex-1 rounded-lg bg-muted/40 p-2">
+                <div className="text-base font-bold text-amber-600">{callHistory.filter((c) => c.quotation_number).length}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Quotations</div>
+              </div>
+              <div className="flex-1 rounded-lg bg-muted/40 p-2">
+                <div className="text-base font-bold text-green-600">{callHistory.filter((c) => c.call_status === "Converted").length}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Converted</div>
+              </div>
+            </div>
+          )}
+
+          {/* Filter */}
+          {callHistory.length > 0 && (
+            <div className="mb-3">
+              <Select value={callStatusFilter} onValueChange={setCallStatusFilter}>
+                <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {["Connected", "Not Connected", "Callback Requested", "Quotation Sent", "Converted", "Not Interested"].map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {callHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No calls logged yet.</p>
+          ) : (() => {
+            const filtered = callStatusFilter === "all"
+              ? callHistory
+              : callHistory.filter((c) => c.call_status === callStatusFilter);
+
+            return filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No calls with this status.</p>
+            ) : (
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead>
+                    <tr className="border-b text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                      <th className="text-left px-2 py-2 whitespace-nowrap">Date</th>
+                      <th className="text-left px-2 py-2 whitespace-nowrap">Status</th>
+                      <th className="text-left px-2 py-2">Summary</th>
+                      <th className="text-left px-2 py-2 whitespace-nowrap">Agent</th>
+                      <th className="text-left px-2 py-2 whitespace-nowrap">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((call) => {
+                      const meta = CALL_STATUS_META[call.call_status] ?? { dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
+                      return (
+                        <tr key={call.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                          <td className="px-2 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(call.call_date)}</td>
+                          <td className="px-2 py-2.5 whitespace-nowrap">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${meta.badge}`}>
+                              {call.call_status}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2.5 text-xs max-w-[180px]">
+                            <p className="line-clamp-2 leading-snug">{call.call_summary}</p>
+                          </td>
+                          <td className="px-2 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{call.agent?.name ?? "—"}</td>
+                          <td className="px-2 py-2.5">
+                            <div className="flex flex-col gap-1">
+                              {call.quotation_number && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300 whitespace-nowrap">
+                                  QT: {call.quotation_number}
+                                </span>
+                              )}
+                              {call.invoice_number && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 whitespace-nowrap">
+                                  INV: {call.invoice_number}
+                                </span>
+                              )}
+                              {call.sale_value != null && call.sale_value > 0 && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 whitespace-nowrap">
+                                  {fmtCurrency(call.sale_value)}
+                                </span>
+                              )}
+                              {call.next_schedule_date && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300 whitespace-nowrap">
+                                  CB: {fmtDate(call.next_schedule_date)}
+                                </span>
+                              )}
+                              {!call.quotation_number && !call.invoice_number && !call.next_schedule_date && (
+                                <span className="text-[10px] text-muted-foreground">—</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* ── D. Quotations ── */}
+      <Card className="border-none shadow-md">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <FileText className="h-4 w-4" /> Quotations
+            </h2>
+            <Button size="sm" variant="outline" onClick={() => { addQuotationForm.reset(); setModal("addQuotation"); }}>
+              <Plus className="h-4 w-4 mr-1" /> Add Quotation
+            </Button>
+          </div>
+          {quotationsError ? (
+            <div className="text-sm text-red-600 text-center py-4 space-y-2">
+              <p>Could not load quotations: {(quotationsError as Error).message}</p>
+              <Button size="sm" variant="outline" onClick={() => refetchQuotations()}>Retry</Button>
+            </div>
+          ) : quotations.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No quotations yet.</p>
           ) : (
             <div className="overflow-x-auto -mx-1">
-              <table className="w-full text-sm min-w-[420px]">
+              <table className="w-full text-sm min-w-[360px]">
                 <thead>
                   <tr className="border-b text-muted-foreground text-xs font-semibold uppercase tracking-wider">
                     <th className="text-left px-2 py-2">Date</th>
-                    <th className="text-left px-2 py-2">Status</th>
-                    <th className="text-left px-2 py-2">Notes</th>
-                    <th className="px-2 py-2" />
+                    <th className="text-left px-2 py-2">Quotation #</th>
+                    <th className="text-right px-2 py-2">Value</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {followups.map((f: any) => (
-                    <tr key={f.id} className="border-b last:border-0">
-                      <td className="px-2 py-2.5 text-xs whitespace-nowrap">{fmtDate(f.followup_date)}</td>
-                      <td className="px-2 py-2.5">{statusBadge(f.status)}</td>
-                      <td className="px-2 py-2.5 text-xs text-muted-foreground max-w-[180px] truncate">{f.notes || "—"}</td>
-                      <td className="px-2 py-2.5">
-                        {f.status !== "Converted" && (
-                          <button onClick={() => openEditFollowup(f)} className="text-muted-foreground hover:text-foreground transition-colors">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                        )}
+                  {quotations.map((q) => (
+                    <tr key={q.id} className="border-b last:border-0">
+                      <td className="px-2 py-2.5 text-xs whitespace-nowrap">{fmtDate(q.quotation_date)}</td>
+                      <td className="px-2 py-2.5 text-xs font-mono">{q.quotation_number}</td>
+                      <td className="px-2 py-2.5 text-xs font-semibold text-right text-primary">
+                        <span className="flex items-center justify-end gap-0.5">
+                          <IndianRupee className="h-3 w-3" />
+                          {Number(q.quotation_value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -393,37 +573,6 @@ export default function CustomerDetail() {
           )}
         </CardContent>
       </Card>
-
-      {/* ── D. Conversion History ── */}
-      {conversions.length > 0 && (
-        <Card className="border-none shadow-md">
-          <CardContent className="p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-600" /> Conversion History
-            </h2>
-            <div className="overflow-x-auto -mx-1">
-              <table className="w-full text-sm min-w-[360px]">
-                <thead>
-                  <tr className="border-b text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                    <th className="text-left px-2 py-2">Date</th>
-                    <th className="text-left px-2 py-2">Invoice</th>
-                    <th className="text-right px-2 py-2">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {conversions.map((c: any) => (
-                    <tr key={c.id} className="border-b last:border-0">
-                      <td className="px-2 py-2.5 text-xs whitespace-nowrap">{fmtDate(c.converted_at ?? c.followup_date)}</td>
-                      <td className="px-2 py-2.5 text-xs font-mono">{c.invoice_number || "—"}</td>
-                      <td className="px-2 py-2.5 text-xs font-semibold text-right text-green-700 dark:text-green-400">{fmtCurrency(c.sale_amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ── E. Brands ── */}
       {brands.length > 0 && (
@@ -445,57 +594,6 @@ export default function CustomerDetail() {
 
       {/* ══════════════ MODALS ══════════════ */}
 
-      {/* Add Follow-up */}
-      <Dialog open={modal === "addFollowup"} onOpenChange={(o) => !o && close()}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Add Follow-up</DialogTitle></DialogHeader>
-          <Form {...addFollowupForm}>
-            <form onSubmit={onAddFollowup} className="space-y-4">
-              {isManager && (
-                <FormField control={addFollowupForm.control} name="visit_id" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assign to Agent *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Select agent" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {visits.map((v: any) => (
-                          <SelectItem key={v.id} value={String(v.id)}>
-                            {v.agent_name} — {fmtDate(v.visit_date)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              )}
-              <FormField control={addFollowupForm.control} name="followup_date" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Follow-up Date *</FormLabel>
-                  <FormControl><Input type="date" {...field} className="h-10" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={addFollowupForm.control} name="notes" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes *</FormLabel>
-                  <FormControl><Textarea placeholder="What needs follow-up?" rows={3} {...field} className="resize-none" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={close}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Save
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
       {/* Edit Customer */}
       <Dialog open={modal === "editCustomer"} onOpenChange={(o) => !o && close()}>
         <DialogContent>
@@ -506,6 +604,13 @@ export default function CustomerDetail() {
                 <FormItem>
                   <FormLabel>Customer Name *</FormLabel>
                   <FormControl><Input {...field} className="h-10" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editCustomerForm.control} name="mobile" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number *</FormLabel>
+                  <FormControl><Input {...field} className="h-10" placeholder="+91 XXXXX XXXXX" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -558,34 +663,16 @@ export default function CustomerDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Mark Conversion */}
+      {/* Add Sale */}
       <Dialog open={modal === "markConversion"} onOpenChange={(o) => !o && close()}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Mark Conversion</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Add Sale</DialogTitle></DialogHeader>
           <Form {...markConversionForm}>
             <form onSubmit={onMarkConversion} className="space-y-4">
-              <FormField control={markConversionForm.control} name="followup_id" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Select Follow-up *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10"><SelectValue placeholder="Choose follow-up to convert" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {pendingFollowups.map((f: any) => (
-                        <SelectItem key={f.id} value={String(f.id)}>
-                          {fmtDate(f.followup_date)} — {f.status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
               <FormField control={markConversionForm.control} name="sale_amount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Sale Amount (₹) *</FormLabel>
-                  <FormControl><Input placeholder="e.g. 75000" {...field} className="h-10" /></FormControl>
+                  <FormControl><Input type="number" placeholder="e.g. 75000" {...field} className="h-10" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -599,7 +686,7 @@ export default function CustomerDetail() {
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={close}>Cancel</Button>
                 <Button type="submit" disabled={submitting} className="bg-green-600 hover:bg-green-700 text-white">
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Record Conversion
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Save Sale
                 </Button>
               </DialogFooter>
             </form>
@@ -607,38 +694,30 @@ export default function CustomerDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Follow-up */}
-      <Dialog open={modal === "editFollowup"} onOpenChange={(o) => !o && close()}>
+      {/* Add Quotation */}
+      <Dialog open={modal === "addQuotation"} onOpenChange={(o) => !o && close()}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Edit Follow-up</DialogTitle></DialogHeader>
-          <Form {...editFollowupForm}>
-            <form onSubmit={onEditFollowup} className="space-y-4">
-              <FormField control={editFollowupForm.control} name="followup_date" render={({ field }) => (
+          <DialogHeader><DialogTitle>Add Quotation</DialogTitle></DialogHeader>
+          <Form {...addQuotationForm}>
+            <form onSubmit={onAddQuotation} className="space-y-4">
+              <FormField control={addQuotationForm.control} name="quotation_number" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Follow-up Date *</FormLabel>
+                  <FormLabel>Quotation Number *</FormLabel>
+                  <FormControl><Input placeholder="e.g. QT-2024-001" {...field} className="h-10" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={addQuotationForm.control} name="quotation_date" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date *</FormLabel>
                   <FormControl><Input type="date" {...field} className="h-10" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={editFollowupForm.control} name="status" render={({ field }) => (
+              <FormField control={addQuotationForm.control} name="quotation_value" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Status *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Pending">Pending</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={editFollowupForm.control} name="notes" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl><Textarea rows={3} {...field} className="resize-none" /></FormControl>
+                  <FormLabel>Value (₹) *</FormLabel>
+                  <FormControl><Input type="number" placeholder="e.g. 50000" {...field} className="h-10" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

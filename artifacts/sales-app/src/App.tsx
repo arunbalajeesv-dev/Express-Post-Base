@@ -10,12 +10,14 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import AgentDashboard from "@/pages/agent-dashboard";
 import AddVisit from "@/pages/add-visit";
-import Followups from "@/pages/followups";
-import OverdueFollowups from "@/pages/followups-overdue";
 import Customers from "@/pages/customers";
 import CustomerDetail from "@/pages/customer-detail";
 import Users from "@/pages/users";
 import AgentDetail from "@/pages/agent-detail";
+import NewCall from "@/pages/new-call";
+import Schedule from "@/pages/schedule";
+import Reports from "@/pages/reports";
+import CallLogsTable from "@/pages/call-logs-table";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -70,19 +72,25 @@ function Router() {
       <Route path="/agents/:id">
         <ProtectedRoute component={AgentDetail} allowedRoles={["Manager"]} />
       </Route>
+      <Route path="/call-logs">
+        <ProtectedRoute component={CallLogsTable} allowedRoles={["Manager"]} />
+      </Route>
 
-      {/* Agent routes */}
+      {/* Shared routes */}
       <Route path="/home">
         <ProtectedRoute component={AgentDashboard} allowedRoles={["Sales"]} />
       </Route>
       <Route path="/add-visit">
         <ProtectedRoute component={AddVisit} allowedRoles={["Sales"]} />
       </Route>
-      <Route path="/followups">
-        <ProtectedRoute component={Followups} />
+      <Route path="/calls/new">
+        <ProtectedRoute component={NewCall} />
       </Route>
-      <Route path="/followups-overdue">
-        <ProtectedRoute component={OverdueFollowups} />
+      <Route path="/schedule">
+        <ProtectedRoute component={Schedule} />
+      </Route>
+      <Route path="/reports">
+        <ProtectedRoute component={Reports} />
       </Route>
       <Route path="/customers">
         <ProtectedRoute component={Customers} />

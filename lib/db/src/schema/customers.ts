@@ -7,6 +7,7 @@ export const customersTable = pgTable("customers", {
   name: text("name").notNull(),
   mobile: text("mobile").notNull().unique(),
   companyName: text("company_name"),
+  city: text("city"),
   leadStatus: text("lead_status"),
   leadScore: integer("lead_score"),
   lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }),

@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, ChevronRight, Phone, Building2, X } from "lucide-react";
+import { Users, Search, ChevronRight, Phone, Building2, X, PhoneCall } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const SITE_STAGES = [
   "New Site/ Foundation",
@@ -19,6 +20,24 @@ const SITE_STAGES = [
 ];
 
 const STATUS_OPTIONS = ["Converted", "In Progress", "Not Converted"];
+
+const LAST_CONTACTED_OPTIONS = [
+  { value: "today",  label: "Today" },
+  { value: "week",   label: "Last 7 days" },
+  { value: "month",  label: "Last 30 days" },
+  { value: "never",  label: "Never contacted" },
+];
+
+function fmtLastContacted(dateStr: string | undefined): string {
+  if (!dateStr) return "Never";
+  const diffDays = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7)  return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+  return `${Math.floor(diffDays / 365)}y ago`;
+}
 
 const apiGet = (path: string) => {
   const token = localStorage.getItem("auth_token");
@@ -39,11 +58,36 @@ export default function Customers() {
   const [filterStage, setFilterStage] = useState("");
   const [filterArea, setFilterArea] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterLastContacted, setFilterLastContacted] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: () => apiGet("/customers"),
   });
+
+  // Fetch call_logs per customer for last-called date and call count
+  const { data: callRows = [] } = useQuery<{ customer_id: number; call_date: string }[]>({
+    queryKey: ["customers-last-call"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("call_logs")
+        .select("customer_id, call_date")
+        .order("call_date", { ascending: false });
+      if (error) return [];
+      return data ?? [];
+    },
+    retry: false,
+  });
+
+  // Build maps: customer_id → latest call date, customer_id → total calls
+  const lastCallMap = new Map<number, string>();
+  const callCountMap = new Map<number, number>();
+  for (const row of callRows) {
+    if (!lastCallMap.has(row.customer_id)) {
+      lastCallMap.set(row.customer_id, row.call_date);
+    }
+    callCountMap.set(row.customer_id, (callCountMap.get(row.customer_id) ?? 0) + 1);
+  }
 
   const customers: any[] = data?.data ?? [];
 
@@ -52,12 +96,13 @@ export default function Customers() {
     customers.map((c) => c.current_area).filter(Boolean) as string[]
   )].sort();
 
-  const activeFilters = [filterStage, filterArea, filterStatus].filter(Boolean).length;
+  const activeFilters = [filterStage, filterArea, filterStatus, filterLastContacted].filter(Boolean).length;
 
   const clearFilters = () => {
     setFilterStage("");
     setFilterArea("");
     setFilterStatus("");
+    setFilterLastContacted("");
   };
 
   const filtered = customers.filter((c) => {
@@ -72,7 +117,24 @@ export default function Customers() {
     const matchArea   = !filterArea   || c.current_area        === filterArea;
     const matchStatus = !filterStatus || c.conversion_status   === filterStatus;
 
-    return matchSearch && matchStage && matchArea && matchStatus;
+    let matchLastContacted = true;
+    if (filterLastContacted) {
+      const lastCall = lastCallMap.get(c.id);
+      if (filterLastContacted === "never") {
+        matchLastContacted = !lastCall;
+      } else {
+        if (!lastCall) {
+          matchLastContacted = false;
+        } else {
+          const diffDays = Math.floor((Date.now() - new Date(lastCall).getTime()) / 86_400_000);
+          if (filterLastContacted === "today")  matchLastContacted = diffDays === 0;
+          if (filterLastContacted === "week")   matchLastContacted = diffDays <= 7;
+          if (filterLastContacted === "month")  matchLastContacted = diffDays <= 30;
+        }
+      }
+    }
+
+    return matchSearch && matchStage && matchArea && matchStatus && matchLastContacted;
   });
 
   return (
@@ -143,6 +205,17 @@ export default function Customers() {
           </SelectContent>
         </Select>
 
+        <Select value={filterLastContacted} onValueChange={setFilterLastContacted}>
+          <SelectTrigger className="h-9 text-sm w-auto min-w-[160px]">
+            <SelectValue placeholder="Last Contacted" />
+          </SelectTrigger>
+          <SelectContent>
+            {LAST_CONTACTED_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {activeFilters > 0 && (
           <button
             onClick={clearFilters}
@@ -173,7 +246,8 @@ export default function Customers() {
                     <th className="text-center px-4 py-3">Sites</th>
                     <th className="text-left px-4 py-3">Site Stage</th>
                     <th className="text-left px-4 py-3">Area</th>
-                    <th className="text-center px-4 py-3">Follow-ups</th>
+                    <th className="text-center px-4 py-3">Calls</th>
+                    <th className="text-left px-4 py-3">Last Contacted</th>
                     <th className="text-left px-4 py-3">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -191,7 +265,13 @@ export default function Customers() {
                       <td className="px-4 py-3.5 text-center font-semibold">{c.total_visits}</td>
                       <td className="px-4 py-3.5 text-xs text-muted-foreground">{c.current_site_stage || "—"}</td>
                       <td className="px-4 py-3.5 text-xs text-muted-foreground">{c.current_area || "—"}</td>
-                      <td className="px-4 py-3.5 text-center font-semibold">{c.total_followups}</td>
+                      <td className="px-4 py-3.5 text-center font-semibold">{callCountMap.get(c.id) ?? 0}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={`text-xs font-medium flex items-center gap-1 ${lastCallMap.has(c.id) ? "text-foreground" : "text-muted-foreground"}`}>
+                          {lastCallMap.has(c.id) && <PhoneCall className="w-3 h-3 shrink-0 text-primary" />}
+                          {fmtLastContacted(lastCallMap.get(c.id))}
+                        </span>
+                      </td>
                       <td className="px-4 py-3.5">{conversionBadge(c.conversion_status)}</td>
                       <td className="px-4 py-3.5 text-muted-foreground"><ChevronRight className="h-4 w-4" /></td>
                     </tr>
@@ -252,12 +332,14 @@ export default function Customers() {
                       <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Sites</div>
                     </div>
                     <div>
-                      <div className="text-base font-bold">{c.total_followups}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Follow-ups</div>
+                      <div className="text-base font-bold">{callCountMap.get(c.id) ?? 0}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Calls</div>
                     </div>
                     <div>
-                      <div className="text-base font-bold">{c.converted_count ?? 0}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Converted</div>
+                      <div className="text-base font-bold text-xs leading-tight">
+                        {fmtLastContacted(lastCallMap.get(c.id))}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Last Call</div>
                     </div>
                   </div>
                 </CardContent>

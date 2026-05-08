@@ -5,10 +5,8 @@ export async function getAllVisitsForExport() {
   const latestFollowup = db
     .selectDistinctOn([followupsTable.visitId], {
       visitId: followupsTable.visitId,
-      status: followupsTable.status,
       saleAmount: followupsTable.saleAmount,
       invoiceNumber: followupsTable.invoiceNumber,
-      convertedAt: followupsTable.convertedAt,
     })
     .from(followupsTable)
     .orderBy(followupsTable.visitId, desc(followupsTable.id))
@@ -29,7 +27,6 @@ export async function getAllVisitsForExport() {
       companyName: customersTable.companyName,
       salesPerson: usersTable.name,
       salesPersonId: usersTable.userId,
-      followupStatus: latestFollowup.status,
       saleAmount: latestFollowup.saleAmount,
       invoiceNumber: latestFollowup.invoiceNumber,
     })

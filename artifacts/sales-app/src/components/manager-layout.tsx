@@ -1,14 +1,17 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { Home, BookUser, ListTodo, UserCheck, LogOut } from "lucide-react";
+import { Home, BookUser, UserCheck, LogOut, PhoneCall, BarChart2, CalendarClock, TableProperties } from "lucide-react";
 import { Button } from "./ui/button";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard",  icon: Home },
-  { href: "/customers", label: "Customers",  icon: BookUser },
-  { href: "/followups", label: "Follow-ups", icon: ListTodo },
-  { href: "/users",     label: "Team",       icon: UserCheck },
+  { href: "/dashboard",   label: "Dashboard",  icon: Home },
+  { href: "/customers",   label: "Customers",  icon: BookUser },
+  { href: "/calls/new",   label: "Log Call",   icon: PhoneCall },
+  { href: "/call-logs",   label: "Call Logs",  icon: TableProperties },
+  { href: "/schedule",    label: "Schedule",   icon: CalendarClock },
+  { href: "/users",       label: "Team",       icon: UserCheck },
+  { href: "/reports",     label: "Reports",    icon: BarChart2 },
 ];
 
 function isNavActive(href: string, location: string): boolean {

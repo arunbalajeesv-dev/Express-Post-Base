@@ -10,17 +10,11 @@ import {
   getGetInactiveUsersQueryKey,
   getGetVisitsPerUserQueryKey,
 } from "@workspace/api-client-react";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   BarChart,
   Users,
@@ -30,11 +24,9 @@ import {
   TrendingUp,
   IndianRupee,
   Phone,
-  ClipboardList,
-  CheckCircle2,
+  PhoneCall,
   Package,
   CalendarDays,
-  User,
 } from "lucide-react";
 import {
   PieChart,
@@ -50,22 +42,7 @@ import {
 } from "recharts";
 import { format, parseISO, startOfWeek, startOfMonth } from "date-fns";
 
-const FEEDBACK_COLORS: Record<string, string> = {
-  Interested: "hsl(var(--chart-1))",
-  Potential: "hsl(var(--chart-4))",
-  "Not Interested": "hsl(var(--muted-foreground))",
-};
-
-type ConversionUser = {
-  userId: number;
-  userName: string;
-  userLoginId: string;
-  totalVisits: number;
-  totalFollowups: number;
-  convertedCount: number;
-  conversionRate: number;
-  totalSalesValue: number;
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type VisitRow = {
   id: number;
@@ -79,35 +56,32 @@ type VisitRow = {
   user: { id: number; name: string; userId: string };
 };
 
-type FollowupRow = {
-  id: number;
-  followupDate: string;
-  status: string;
-  notes: string | null;
-  summary: string | null;
-  saleAmount: string | null;
-  invoiceNumber: string | null;
-  customer: { id: number; name: string; mobile: string; companyName: string | null } | null;
-  assignedTo: { id: number; name: string; userId: string } | null;
-  visit: { id: number; area: string; siteStage: string; feedback: string } | null;
-};
-
 type BrandStat = { brandName: string; count: number };
 
-type AgentBreakdown = {
+type DateFilter = "today" | "week" | "month";
+
+type AgentCallStat = {
   agentId: number;
   agentName: string;
   agentLoginId: string;
-  totalCompleted: number;
-  customerContacted: number;
+  visits: number;
+  callsMade: number;
+  connectedCalls: number;
   quotationsSent: number;
-  converted: number;
+  convertedSales: number;
   conversionRate: number;
+  salesValue: number;
 };
 
-type ActivityMetric = "completed" | "contacted" | "quotations" | "converted" | "rate";
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-type DateFilter = "today" | "week" | "month";
+const FEEDBACK_COLORS: Record<string, string> = {
+  Interested:       "hsl(var(--chart-1))",
+  Potential:        "hsl(var(--chart-4))",
+  "Not Interested": "hsl(var(--muted-foreground))",
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function apiHeaders() {
   const token = localStorage.getItem("auth_token");
@@ -115,7 +89,7 @@ function apiHeaders() {
 }
 
 function getDateRange(filter: DateFilter) {
-  const now = new Date();
+  const now   = new Date();
   const today = now.toISOString().slice(0, 10);
   if (filter === "today") return { from: today, to: today };
   if (filter === "week") {
@@ -126,19 +100,7 @@ function getDateRange(filter: DateFilter) {
   return { from: ms.toISOString().slice(0, 10), to: today };
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    Pending:   "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-    Completed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    Converted: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    Missed:    "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${styles[status] ?? "bg-muted text-muted-foreground"}`}>
-      {status}
-    </span>
-  );
-}
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function FeedbackBadge({ feedback }: { feedback: string }) {
   const styles: Record<string, string> = {
@@ -153,133 +115,148 @@ function FeedbackBadge({ feedback }: { feedback: string }) {
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function Dashboard() {
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [period,      setPeriod]      = useState<"daily" | "weekly" | "monthly">("daily");
   const [tableFilter, setTableFilter] = useState<DateFilter>("week");
-  const [activityFilter, setActivityFilter] = useState<DateFilter>("month");
-  const [agentDetailMetric, setAgentDetailMetric] = useState<ActivityMetric | null>(null);
+  const [callFilter,  setCallFilter]  = useState<DateFilter>("month");
 
-  const { data: totalVisits, isLoading: isLoadingTotal } = useGetTotalVisits({
-    query: { queryKey: getGetTotalVisitsQueryKey() },
-  });
-
-  const { data: feedbackSummary, isLoading: isLoadingFeedback } = useGetFeedbackSummary({
-    query: { queryKey: getGetFeedbackSummaryQueryKey() },
-  });
-
-  const { data: inactiveUsers, isLoading: isLoadingInactive } = useGetInactiveUsers({
-    query: { queryKey: getGetInactiveUsersQueryKey() },
-  });
-
-  const { data: visitsPerUser, isLoading: isLoadingVisitsPerUser } = useGetVisitsPerUser(
-    { period },
-    { query: { queryKey: getGetVisitsPerUserQueryKey({ period }) } },
-  );
-
-  const { data: dailyVisitsPerUser, isLoading: isLoadingDailyBreakdown } = useGetVisitsPerUser(
-    { period: "daily" },
-    { query: { queryKey: getGetVisitsPerUserQueryKey({ period: "daily" }) } },
-  );
-
-  const { data: conversionData, isLoading: isLoadingConversion } = useQuery<ConversionUser[]>({
-    queryKey: ["dashboard-conversion-summary"],
-    queryFn: async () => {
-      const res = await fetch("/api/dashboard/conversion-summary", { headers: apiHeaders() });
-      if (!res.ok) throw new Error("Failed to load conversion summary");
-      const json = await res.json();
-      return json.data ?? [];
-    },
-  });
-
-  const activityDateRange = useMemo(() => getDateRange(activityFilter), [activityFilter]);
-
-  const { data: followupActivity, isLoading: isLoadingActivity } = useQuery<{
-    totalCompleted: number;
-    customerContacted: number;
-    quotationsSent: number;
-    converted: number;
-    conversionRate: number;
-  }>({
-    queryKey: ["followup-activity", activityDateRange.from, activityDateRange.to],
-    queryFn: async () => {
-      const params = new URLSearchParams({ from: activityDateRange.from, to: activityDateRange.to });
-      const res = await fetch(`/api/followups-activity?${params}`, { headers: apiHeaders() });
-      if (!res.ok) throw new Error("Failed to load follow-up activity");
-      const json = await res.json();
-      return json.data;
-    },
-  });
-
-  const { data: agentBreakdown, isLoading: isLoadingAgentBreakdown, isError: isAgentBreakdownError } = useQuery<AgentBreakdown[]>({
-    queryKey: ["followup-agent-breakdown", activityDateRange.from, activityDateRange.to],
-    queryFn: async () => {
-      const params = new URLSearchParams({ from: activityDateRange.from, to: activityDateRange.to });
-      const res = await fetch(`/api/dashboard/followup-agent-breakdown?${params}`, { headers: apiHeaders() });
-      if (!res.ok) throw new Error("Failed to load agent breakdown");
-      const json = await res.json();
-      return json.data ?? [];
-    },
-  });
+  // ── Existing API-based queries ─────────────────────────────────────────────
+  const { data: totalVisits,       isLoading: isLoadingTotal          } = useGetTotalVisits({ query: { queryKey: getGetTotalVisitsQueryKey() } });
+  const { data: feedbackSummary,   isLoading: isLoadingFeedback       } = useGetFeedbackSummary({ query: { queryKey: getGetFeedbackSummaryQueryKey() } });
+  const { data: inactiveUsers,     isLoading: isLoadingInactive        } = useGetInactiveUsers({ query: { queryKey: getGetInactiveUsersQueryKey() } });
+  const { data: visitsPerUser,     isLoading: isLoadingVisitsPerUser  } = useGetVisitsPerUser({ period }, { query: { queryKey: getGetVisitsPerUserQueryKey({ period }) } });
+  const { data: dailyVisitsPerUser, isLoading: isLoadingDailyBreakdown } = useGetVisitsPerUser({ period: "daily" }, { query: { queryKey: getGetVisitsPerUserQueryKey({ period: "daily" }) } });
 
   const { data: brandStats, isLoading: isLoadingBrands } = useQuery<BrandStat[]>({
     queryKey: ["dashboard-brand-stats"],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard/brand-stats", { headers: apiHeaders() });
+      const res  = await fetch("/api/dashboard/brand-stats", { headers: apiHeaders() });
       if (!res.ok) throw new Error("Failed to load brand stats");
       const json = await res.json();
       return json.data ?? [];
     },
   });
 
-  const dateRange = useMemo(() => getDateRange(tableFilter), [tableFilter]);
+  // ── Date ranges ────────────────────────────────────────────────────────────
+  const callDateRange  = useMemo(() => getDateRange(callFilter),  [callFilter]);
+  const tableDateRange = useMemo(() => getDateRange(tableFilter), [tableFilter]);
 
+  // ── Supabase: call_logs in call-filter period ─────────────────────────────
+  const { data: callRows = [] } = useQuery<any[]>({
+    queryKey: ["dashboard-calls", callDateRange],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("call_logs")
+        .select("id, call_status, agent_id, customer_id, sale_value, call_date, quotation_sent")
+        .gte("call_date", callDateRange.from + "T00:00:00Z")
+        .lte("call_date", callDateRange.to + "T23:59:59Z");
+      return data ?? [];
+    },
+  });
+
+  // ── All users (for per-agent table) ───────────────────────────────────────
+  const { data: allUsers = [] } = useQuery<any[]>({
+    queryKey: ["dashboard-all-users"],
+    queryFn: async () => {
+      const res  = await fetch("/api/users", { headers: apiHeaders() });
+      const json = await res.json();
+      return json.data ?? [];
+    },
+  });
+
+  // ── Visits in call-filter period (for agent visit counts) ─────────────────
+  const { data: agentVisitRows = [] } = useQuery<VisitRow[]>({
+    queryKey: ["dashboard-agent-visits", callDateRange],
+    queryFn: async () => {
+      const params = new URLSearchParams({ from: callDateRange.from, to: callDateRange.to });
+      const res    = await fetch(`/api/visits?${params}`, { headers: apiHeaders() });
+      const json   = await res.json();
+      return json.data ?? [];
+    },
+  });
+
+  // ── Visits for the date-filtered table ────────────────────────────────────
   const { data: visitsData, isLoading: isLoadingVisits } = useQuery<VisitRow[]>({
-    queryKey: ["dashboard-visits", dateRange.from, dateRange.to],
+    queryKey: ["dashboard-visits", tableDateRange.from, tableDateRange.to],
     queryFn: async () => {
-      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
-      const res = await fetch(`/api/visits?${params}`, { headers: apiHeaders() });
+      const params = new URLSearchParams({ from: tableDateRange.from, to: tableDateRange.to });
+      const res    = await fetch(`/api/visits?${params}`, { headers: apiHeaders() });
       if (!res.ok) throw new Error("Failed to load visits");
-      const json = await res.json();
+      const json   = await res.json();
       return json.data ?? [];
     },
   });
 
-  const { data: followupsData, isLoading: isLoadingFollowups } = useQuery<FollowupRow[]>({
-    queryKey: ["dashboard-followups", dateRange.from, dateRange.to],
-    queryFn: async () => {
-      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
-      const res = await fetch(`/api/followups?${params}`, { headers: apiHeaders() });
-      if (!res.ok) throw new Error("Failed to load follow-ups");
-      const json = await res.json();
-      return json.data ?? [];
-    },
-  });
+  // ── Overall KPI summary (all agents) ──────────────────────────────────────
+  const callSummary = useMemo(() => {
+    const totalCalls     = callRows.length;
+    const connectedCalls = callRows.filter((c) => c.call_status === "Connected").length;
+    const quotationsSent = callRows.filter((c) => c.quotation_sent === true).length;
+    const convertedSales = callRows.filter((c) => c.call_status === "Converted").length;
+    const salesValue     = callRows
+      .filter((c) => c.call_status === "Converted")
+      .reduce((sum: number, c: any) => sum + (parseFloat(c.sale_value ?? "0") || 0), 0);
+    const conversionRate = totalCalls > 0 ? Math.round((convertedSales / totalCalls) * 100) : 0;
+    return { totalCalls, connectedCalls, quotationsSent, convertedSales, conversionRate, salesValue };
+  }, [callRows]);
 
-  const handleExport = async (type: "excel" | "pdf") => {
-    try {
-      const res = await fetch(`/api/export/${type}`, { headers: apiHeaders() });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `visits_report.${type === "excel" ? "xlsx" : "pdf"}`;
-      a.click();
-    } catch (e) {
-      console.error("Export failed", e);
+  // ── Per-agent stats ────────────────────────────────────────────────────────
+  const agentStats = useMemo((): AgentCallStat[] => {
+    const map = new Map<number, AgentCallStat>();
+
+    for (const u of allUsers) {
+      map.set(u.id, {
+        agentId:       u.id,
+        agentName:     u.name,
+        agentLoginId:  u.userId ?? "",
+        visits:        0,
+        callsMade:     0,
+        connectedCalls: 0,
+        quotationsSent: 0,
+        convertedSales: 0,
+        conversionRate: 0,
+        salesValue:    0,
+      });
     }
-  };
 
-  const totalToday = (totalVisits as any)?.data?.today ?? 0;
-  const totalAll   = (totalVisits as any)?.data?.total ?? 0;
+    for (const v of agentVisitRows) {
+      const entry = map.get(v.user?.id);
+      if (entry) entry.visits++;
+    }
+    for (const c of callRows) {
+      const entry = map.get(c.agent_id);
+      if (entry) {
+        entry.callsMade++;
+        if (c.call_status === "Connected")      entry.connectedCalls++;
+        if (c.quotation_sent === true)           entry.quotationsSent++;
+        if (c.call_status === "Converted") {
+          entry.convertedSales++;
+          entry.salesValue += parseFloat(c.sale_value ?? "0") || 0;
+        }
+      }
+    }
 
+    return Array.from(map.values())
+      .filter((a) => a.callsMade > 0 || a.visits > 0)
+      .map((a) => ({
+        ...a,
+        conversionRate: a.callsMade > 0 ? Math.round((a.convertedSales / a.callsMade) * 100) : 0,
+      }))
+      .sort((a, b) => b.callsMade - a.callsMade);
+  }, [allUsers, agentVisitRows, callRows]);
+
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const totalToday  = (totalVisits as any)?.data?.today ?? 0;
+  const totalAll    = (totalVisits as any)?.data?.total ?? 0;
   const feedbackRaw = (feedbackSummary as any)?.data ?? {};
-  const pieData = Object.entries(feedbackRaw)
+  const pieData     = Object.entries(feedbackRaw)
     .filter(([, v]) => (v as number) > 0)
     .map(([feedback, count]) => ({ feedback, count: count as number }));
-
   const inactiveList: any[] = (inactiveUsers as any)?.data?.inactiveUsers ?? [];
-  const visitUsers: any[]   = (visitsPerUser as any)?.data?.users ?? [];
-  const dailyUsers: any[]   = (dailyVisitsPerUser as any)?.data?.users ?? [];
+  const visitUsers:   any[] = (visitsPerUser as any)?.data?.users ?? [];
+  const dailyUsers:   any[] = (dailyVisitsPerUser as any)?.data?.users ?? [];
 
   const filterLabel: Record<DateFilter, string> = {
     today: "Today",
@@ -287,8 +264,25 @@ export default function Dashboard() {
     month: "This Month",
   };
 
+  const handleExport = async (type: "excel" | "pdf") => {
+    try {
+      const res  = await fetch(`/api/export/${type}`, { headers: apiHeaders() });
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `visits_report.${type === "excel" ? "xlsx" : "pdf"}`;
+      a.click();
+    } catch (e) {
+      console.error("Export failed", e);
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <div className="p-6 space-y-6">
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -307,7 +301,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards — Visits + Feedback */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -323,7 +317,6 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground">{totalAll} total all-time</p>
               </>
             )}
-
             {dailyUsers.length > 0 && (
               <div className="border-t pt-3 space-y-2">
                 {isLoadingDailyBreakdown ? (
@@ -339,9 +332,7 @@ export default function Dashboard() {
                       </div>
                       <span className="text-xs flex-1 truncate">{u.userName}</span>
                       <span className={`text-xs font-bold tabular-nums px-2 py-0.5 rounded-full ${
-                        u.visitCount > 0
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground"
+                        u.visitCount > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                       }`}>
                         {u.visitCount}
                       </span>
@@ -374,15 +365,10 @@ export default function Dashboard() {
                     nameKey="feedback"
                   >
                     {pieData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={FEEDBACK_COLORS[entry.feedback] ?? "hsl(var(--primary))"}
-                      />
+                      <Cell key={`cell-${index}`} fill={FEEDBACK_COLORS[entry.feedback] ?? "hsl(var(--primary))"} />
                     ))}
                   </Pie>
-                  <RechartsTooltip
-                    contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                  />
+                  <RechartsTooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -395,7 +381,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Visits Per User + Inactive Users */}
+      {/* Visits Per Agent chart + Inactive Today */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -420,10 +406,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                   <XAxis dataKey="userName" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <RechartsTooltip
-                    cursor={{ fill: "hsl(var(--muted))" }}
-                    contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                  />
+                  <RechartsTooltip cursor={{ fill: "hsl(var(--muted))" }} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
                   <Bar dataKey="visitCount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </RechartsBarChart>
               </ResponsiveContainer>
@@ -448,19 +431,17 @@ export default function Dashboard() {
               </div>
             ) : inactiveList.filter((u) => u.userId).length > 0 ? (
               <ul className="space-y-3">
-                {inactiveList
-                  .filter((u) => u.userId)
-                  .map((u) => (
-                    <li key={u.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-secondary-foreground">
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium leading-none">{u.name}</div>
-                        <div className="text-xs text-muted-foreground">{u.userId}</div>
-                      </div>
-                    </li>
-                  ))}
+                {inactiveList.filter((u) => u.userId).map((u) => (
+                  <li key={u.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-secondary-foreground">
+                      {u.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium leading-none">{u.name}</div>
+                      <div className="text-xs text-muted-foreground">{u.userId}</div>
+                    </div>
+                  </li>
+                ))}
               </ul>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
@@ -472,18 +453,18 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Follow-up Activity Summary */}
+      {/* Call Activity KPI card */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
             <div>
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" />
-                Follow-up Activity
+                <PhoneCall className="h-4 w-4" />
+                Call Activity
               </CardTitle>
-              <CardDescription>Click any stat to see agent-wise breakdown</CardDescription>
+              <CardDescription>Call-based performance metrics</CardDescription>
             </div>
-            <Tabs value={activityFilter} onValueChange={(v) => setActivityFilter(v as DateFilter)}>
+            <Tabs value={callFilter} onValueChange={(v) => setCallFilter(v as DateFilter)}>
               <TabsList>
                 <TabsTrigger value="today">Today</TabsTrigger>
                 <TabsTrigger value="week">Week</TabsTrigger>
@@ -493,177 +474,129 @@ export default function Dashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoadingActivity ? (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {([
-                { metric: "completed"  as ActivityMetric, label: "Completed",         value: followupActivity?.totalCompleted ?? 0,         icon: <CheckCircle2 className="h-4 w-4 text-blue-500" />,   color: "text-blue-600 dark:text-blue-400" },
-                { metric: "contacted"  as ActivityMetric, label: "Spoke to Customer", value: followupActivity?.customerContacted ?? 0,       icon: <Phone className="h-4 w-4 text-green-500" />,         color: "text-green-600 dark:text-green-400" },
-                { metric: "quotations" as ActivityMetric, label: "Quotations Sent",   value: followupActivity?.quotationsSent ?? 0,           icon: <ClipboardList className="h-4 w-4 text-primary" />,   color: "text-primary" },
-                { metric: "converted"  as ActivityMetric, label: "Converted",         value: followupActivity?.converted ?? 0,               icon: <TrendingUp className="h-4 w-4 text-green-600" />,    color: "text-green-600 dark:text-green-400" },
-                { metric: "rate"       as ActivityMetric, label: "Conversion Rate",   value: `${followupActivity?.conversionRate ?? 0}%`,    icon: <Activity className="h-4 w-4 text-purple-500" />,     color: "text-purple-600 dark:text-purple-400" },
-              ] as const).map((stat) => (
-                <button
-                  key={stat.label}
-                  onClick={() => setAgentDetailMetric(stat.metric)}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-muted/40 border border-border/40 text-center gap-1 hover:bg-muted/70 hover:border-primary/30 transition-colors cursor-pointer w-full"
-                >
-                  {stat.icon}
-                  <div className={`text-xl font-bold leading-none ${stat.color}`}>{stat.value}</div>
-                  <div className="text-xs text-muted-foreground leading-tight">{stat.label}</div>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {([
+              {
+                label: "Total Calls",
+                value: callSummary.totalCalls,
+                icon:  <Phone className="h-4 w-4 text-primary" />,
+                color: "text-primary",
+              },
+              {
+                label: "Connected Calls",
+                value: callSummary.connectedCalls,
+                icon:  <PhoneCall className="h-4 w-4 text-green-500" />,
+                color: "text-green-600 dark:text-green-400",
+              },
+              {
+                label: "Quotations Sent",
+                value: callSummary.quotationsSent,
+                icon:  <Activity className="h-4 w-4 text-blue-500" />,
+                color: "text-blue-600 dark:text-blue-400",
+              },
+              {
+                label: "Converted Sales",
+                value: callSummary.convertedSales,
+                icon:  <TrendingUp className="h-4 w-4 text-green-600" />,
+                color: "text-green-600 dark:text-green-400",
+              },
+              {
+                label: "Conversion Rate",
+                value: `${callSummary.conversionRate}%`,
+                icon:  <Activity className="h-4 w-4 text-purple-500" />,
+                color: "text-purple-600 dark:text-purple-400",
+              },
+              {
+                label: "Sales Value",
+                value: `₹${callSummary.salesValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`,
+                icon:  <IndianRupee className="h-4 w-4 text-green-600" />,
+                color: "text-green-600 dark:text-green-400",
+              },
+            ] as const).map((stat) => (
+              <div
+                key={stat.label}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-muted/40 border border-border/40 text-center gap-1"
+              >
+                {stat.icon}
+                <div className={`text-xl font-bold leading-none ${stat.color}`}>{stat.value}</div>
+                <div className="text-xs text-muted-foreground leading-tight">{stat.label}</div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Agent Breakdown Dialog */}
-      <Dialog open={agentDetailMetric !== null} onOpenChange={(open) => { if (!open) setAgentDetailMetric(null); }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Users className="h-4 w-4 text-primary" />
-              {agentDetailMetric === "completed"  && "Completed Follow-ups by Agent"}
-              {agentDetailMetric === "contacted"  && "Customer Contact by Agent"}
-              {agentDetailMetric === "quotations" && "Quotations Sent by Agent"}
-              {agentDetailMetric === "converted"  && "Conversions by Agent"}
-              {agentDetailMetric === "rate"        && "Conversion Rate by Agent"}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                — {activityFilter === "today" ? "Today" : activityFilter === "week" ? "This Week" : "This Month"}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
-
-          {(isLoadingAgentBreakdown || agentBreakdown === undefined) && !isAgentBreakdownError ? (
-            <div className="space-y-3 py-2">
-              {[1,2,3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
-            </div>
-          ) : isAgentBreakdownError ? (
-            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-              <Users className="h-8 w-8 mb-2 opacity-20" />
-              <span className="text-sm">Could not load data — please rebuild the server</span>
-            </div>
-          ) : agentBreakdown!.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-              <Users className="h-8 w-8 mb-2 opacity-20" />
-              <span className="text-sm">No follow-up activity for this period</span>
-            </div>
-          ) : (
-            <div className="space-y-3 py-1">
-              {agentBreakdown!.map((a) => {
-                const highlight = agentDetailMetric;
-                return (
-                  <div key={a.agentId} className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                        {a.agentName.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-sm leading-none">{a.agentName}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{a.agentLoginId}</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2 text-center">
-                      {([
-                        { key: "completed",  label: "Done",       value: a.totalCompleted,    color: "text-blue-600 dark:text-blue-400" },
-                        { key: "contacted",  label: "Spoke",      value: a.customerContacted, color: "text-green-600 dark:text-green-400" },
-                        { key: "quotations", label: "Quotations", value: a.quotationsSent,    color: "text-primary" },
-                        { key: "converted",  label: "Converted",  value: a.converted,         color: "text-green-600 dark:text-green-400" },
-                        { key: "rate",       label: "Rate",       value: `${a.conversionRate}%`, color: "text-purple-600 dark:text-purple-400" },
-                      ] as const).map((col) => (
-                        <div
-                          key={col.key}
-                          className={`rounded-lg py-2 px-1 transition-colors ${
-                            highlight === col.key
-                              ? "bg-primary/15 ring-1 ring-primary/30"
-                              : "bg-background/60"
-                          }`}
-                        >
-                          <div className={`text-base font-bold leading-none ${col.color}`}>{col.value}</div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{col.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Conversion Performance */}
+      {/* Call-to-Sale Conversion per Agent */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardHeader className="pb-2">
           <div>
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Conversion Performance
+              Call-to-Sale Conversion
             </CardTitle>
-            <CardDescription>Follow-up to sale conversion per sales agent</CardDescription>
+            <CardDescription>Call-to-sale conversion per sales agent — {filterLabel[callFilter]}</CardDescription>
           </div>
         </CardHeader>
-        <CardContent>
-          {isLoadingConversion ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-            </div>
-          ) : (conversionData ?? []).length === 0 ? (
+        <CardContent className="p-0">
+          {agentStats.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
               <TrendingUp className="h-8 w-8 mb-2 opacity-20" />
-              <span className="text-sm">No conversion data yet</span>
+              <span className="text-sm">No activity data for this period</span>
             </div>
           ) : (
-            <div className="space-y-3">
-              {(conversionData ?? []).map((u) => (
-                <div key={u.userId} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                      {u.userName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm leading-none">{u.userName}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{u.userLoginId}</div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-3 sm:gap-4 text-center sm:shrink-0">
-                    <div>
-                      <div className="text-lg font-bold leading-none">{u.totalVisits}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">Visits</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold leading-none">{u.totalFollowups}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">Follow-ups</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold leading-none text-green-600 dark:text-green-400">{u.convertedCount}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">Converted</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold leading-none text-primary">{u.conversionRate}%</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">Rate</div>
-                    </div>
-                  </div>
-
-                  {u.totalSalesValue > 0 && (
-                    <div className="flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-lg whitespace-nowrap">
-                      <IndianRupee className="h-3.5 w-3.5" />
-                      {u.totalSalesValue.toLocaleString("en-IN")}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Agent</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Visits</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Calls Made</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Connected</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Quotations</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Converted</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Rate</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Sales Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {agentStats.map((a) => (
+                    <tr key={a.agentId} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                            {a.agentName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm leading-none">{a.agentName}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{a.agentLoginId}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">{a.visits}</td>
+                      <td className="px-4 py-3 text-right font-medium tabular-nums">{a.callsMade}</td>
+                      <td className="px-4 py-3 text-right tabular-nums hidden sm:table-cell text-green-600 dark:text-green-400">{a.connectedCalls}</td>
+                      <td className="px-4 py-3 text-right tabular-nums hidden sm:table-cell text-blue-600 dark:text-blue-400">{a.quotationsSent}</td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-green-600 dark:text-green-400">{a.convertedSales}</td>
+                      <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell text-purple-600 dark:text-purple-400">{a.conversionRate}%</td>
+                      <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
+                        {a.salesValue > 0 ? (
+                          <span className="text-green-600 dark:text-green-400 font-medium">
+                            ₹{a.salesValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Date-filtered sections ────────────────────────────── */}
+      {/* Date-filtered section header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-primary" />
@@ -678,12 +611,12 @@ export default function Dashboard() {
         </Tabs>
       </div>
 
-      {/* Visits Table */}
+      {/* Site Visits Table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <Activity className="h-4 w-4" />
-            Visits — {filterLabel[tableFilter]}
+            Site Visits — {filterLabel[tableFilter]}
             {!isLoadingVisits && (
               <span className="ml-1 bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-full">
                 {visitsData?.length ?? 0}
@@ -694,7 +627,7 @@ export default function Dashboard() {
         <CardContent className="p-0">
           {isLoadingVisits ? (
             <div className="p-4 space-y-3">
-              {[1,2,3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : (visitsData ?? []).length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
@@ -746,87 +679,7 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Follow-ups Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            Follow-ups — {filterLabel[tableFilter]}
-            {!isLoadingFollowups && (
-              <span className="ml-1 bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-full">
-                {followupsData?.length ?? 0}
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoadingFollowups ? (
-            <div className="p-4 space-y-3">
-              {[1,2,3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-          ) : (followupsData ?? []).length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-              <ClipboardList className="h-8 w-8 mb-2 opacity-20" />
-              <span className="text-sm">No follow-ups for {filterLabel[tableFilter].toLowerCase()}</span>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Date</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Customer</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Agent</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Status</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {(followupsData ?? []).map((f) => (
-                    <tr key={f.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground text-xs">
-                        {f.followupDate ? format(parseISO(f.followupDate), "MMM d") : "—"}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <div className="font-medium leading-none">{f.customer?.name ?? "—"}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{f.customer?.mobile}</div>
-                      </td>
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                            {f.assignedTo?.name?.charAt(0).toUpperCase() ?? "?"}
-                          </div>
-                          <span className="text-xs">{f.assignedTo?.name ?? "—"}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        <StatusBadge status={f.status} />
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {f.status === "Converted" && f.saleAmount ? (
-                          <div className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
-                            <IndianRupee className="h-3 w-3" />
-                            {parseFloat(f.saleAmount).toLocaleString("en-IN")}
-                            {f.invoiceNumber && <span className="font-normal text-muted-foreground ml-1">· {f.invoiceNumber}</span>}
-                          </div>
-                        ) : f.summary ? (
-                          <span className="text-xs text-muted-foreground line-clamp-1">{f.summary}</span>
-                        ) : f.notes ? (
-                          <span className="text-xs text-muted-foreground line-clamp-1 italic">{f.notes}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Brand Usage Stats */}
+      {/* Brand Usage */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -838,7 +691,7 @@ export default function Dashboard() {
         <CardContent>
           {isLoadingBrands ? (
             <div className="space-y-2">
-              {[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+              {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
             </div>
           ) : (brandStats ?? []).length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
@@ -859,10 +712,7 @@ export default function Dashboard() {
                         <span className="text-xs text-muted-foreground ml-2 shrink-0">{b.count} visits</span>
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
+                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   </div>
@@ -872,6 +722,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
     </div>
   );
 }
