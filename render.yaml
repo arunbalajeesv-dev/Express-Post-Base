@@ -3,7 +3,7 @@ services:
     name: express-post-api
     env: node
     plan: free
-    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/sales-app build && pnpm --filter @workspace/api-server build
+    buildCommand: npm install -g pnpm@9 && pnpm install --frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/sales-app run build && pnpm --filter @workspace/api-server run build
     startCommand: node --enable-source-maps --dns-result-order=ipv4first ./artifacts/api-server/dist/index.mjs
     envVars:
       - key: NODE_ENV
