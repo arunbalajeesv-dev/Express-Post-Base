@@ -87,19 +87,21 @@ BEGIN
   SELECT id INTO c12 FROM customers WHERE mobile = '9841001012';
 
   -- ── Visits (12 entries, spread over last 45 days) ─────────────
-  INSERT INTO visits (user_id, customer_id, area, site_stage, feedback, visit_date, visit_time, notes) VALUES
-    (a1, c1,  'Anna Nagar',      'New Site/ Foundation',  'Interested',     NOW() - INTERVAL '40 days', '09:30', 'New plot, owner planning G+2. Interested in cement and steel pricing.'),
-    (a2, c2,  'T.Nagar',         'Brickwork',             'Potential',      NOW() - INTERVAL '35 days', '11:00', 'Brickwork in progress. Showed interest in ACC cement.'),
-    (a1, c3,  'Velachery',       'Plastering',            'Interested',     NOW() - INTERVAL '30 days', '10:15', 'Plastering stage. Asked for quotes on wall putty and primer.'),
-    (a2, c4,  'Tambaram',        'Roofing',               'Potential',      NOW() - INTERVAL '25 days', '14:00', 'Roof slab casting next week. Need TMT bars urgently.'),
-    (a1, c5,  'Adyar',           'Painting/ Tiles',       'Interested',     NOW() - INTERVAL '22 days', '09:00', 'Final stage. Interested in tiles and waterproofing solutions.'),
-    (a2, c6,  'OMR',             'Plumbing/ Electrical',  'Interested',     NOW() - INTERVAL '18 days', '10:30', 'Plumbing work ongoing. Asked for CPVC pipe rates.'),
-    (a1, c7,  'Chromepet',       'Finishing Stage',       'Interested',     NOW() - INTERVAL '15 days', '08:45', 'Almost done. Looking for interior finish materials.'),
-    (a2, c8,  'Porur',           'Brickwork',             'Not Interested', NOW() - INTERVAL '12 days', '13:00', 'Using local supplier. Not interested currently.'),
-    (a1, c9,  'Perambur',        'New Site/ Foundation',  'Interested',     NOW() - INTERVAL '10 days', '09:30', 'New construction. Open to discussing bulk pricing for cement.'),
-    (a2, c10, 'Guindy',          'Plastering',            'Potential',      NOW() - INTERVAL '7 days',  '11:30', 'Plastering in progress. Evaluating multiple suppliers.'),
-    (a1, c11, 'Nungambakkam',    'Roofing',               'Interested',     NOW() - INTERVAL '4 days',  '10:00', 'Roofing slab in 2 weeks. Requested detailed product list and pricing.'),
-    (a2, c12, 'Sholinganallur',  'Painting/ Tiles',       'Potential',      NOW() - INTERVAL '2 days',  '15:00', 'Finishing soon. Interested in premium tiles for living area.');
+  -- Columns: user_id, customer_id, area, site_stage, feedback,
+  --          visit_date, visit_time, notes, location_link, customer_type
+  INSERT INTO visits (user_id, customer_id, area, site_stage, feedback, visit_date, visit_time, notes, location_link, customer_type) VALUES
+    (a1, c1,  'Anna Nagar',      'New Site/ Foundation',  'Interested',     NOW() - INTERVAL '40 days', '09:30', 'New plot, owner planning G+2. Interested in cement and steel pricing.',  '', 'Owner'),
+    (a2, c2,  'T.Nagar',         'Brickwork',             'Potential',      NOW() - INTERVAL '35 days', '11:00', 'Brickwork in progress. Showed interest in ACC cement.',                  '', 'Contractor'),
+    (a1, c3,  'Velachery',       'Plastering',            'Interested',     NOW() - INTERVAL '30 days', '10:15', 'Plastering stage. Asked for quotes on wall putty and primer.',           '', 'Owner'),
+    (a2, c4,  'Tambaram',        'Roofing',               'Potential',      NOW() - INTERVAL '25 days', '14:00', 'Roof slab casting next week. Need TMT bars urgently.',                   '', 'Owner'),
+    (a1, c5,  'Adyar',           'Painting/ Tiles',       'Interested',     NOW() - INTERVAL '22 days', '09:00', 'Final stage. Interested in tiles and waterproofing solutions.',          '', 'Owner'),
+    (a2, c6,  'OMR',             'Plumbing/ Electrical',  'Interested',     NOW() - INTERVAL '18 days', '10:30', 'Plumbing work ongoing. Asked for CPVC pipe rates.',                      '', 'Contractor'),
+    (a1, c7,  'Chromepet',       'Finishing Stage',       'Interested',     NOW() - INTERVAL '15 days', '08:45', 'Almost done. Looking for interior finish materials.',                   '', 'Owner'),
+    (a2, c8,  'Porur',           'Brickwork',             'Not Interested', NOW() - INTERVAL '12 days', '13:00', 'Using local supplier. Not interested currently.',                        '', 'Owner'),
+    (a1, c9,  'Perambur',        'New Site/ Foundation',  'Interested',     NOW() - INTERVAL '10 days', '09:30', 'New construction. Open to discussing bulk pricing for cement.',          '', 'Owner'),
+    (a2, c10, 'Guindy',          'Plastering',            'Potential',      NOW() - INTERVAL '7 days',  '11:30', 'Plastering in progress. Evaluating multiple suppliers.',                 '', 'Contractor'),
+    (a1, c11, 'Nungambakkam',    'Roofing',               'Interested',     NOW() - INTERVAL '4 days',  '10:00', 'Roofing slab in 2 weeks. Requested detailed product list and pricing.',  '', 'Owner'),
+    (a2, c12, 'Sholinganallur',  'Painting/ Tiles',       'Potential',      NOW() - INTERVAL '2 days',  '15:00', 'Finishing soon. Interested in premium tiles for living area.',           '', 'Owner');
 
   -- ── Call Logs (15 entries, varied statuses & dates) ───────────
   INSERT INTO call_logs
